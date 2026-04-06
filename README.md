@@ -5,6 +5,24 @@ This project is a mobile application designed to support Certified Health Inform
 
 The app simplifies the current journaling process by replacing manual Excel-based tracking with an intuitive, mobile-friendly solution.
 
+## Flutter Frontend Prototype Setup
+
+This repository now includes a Flutter frontend implementation of the CPD Tracker UI prototype.
+
+### 1) Install Flutter
+- Follow the official guide: https://docs.flutter.dev/get-started/install
+
+### 2) Generate native folders (first time only)
+- Run in the project root:
+  - `flutter create .`
+
+### 3) Install packages
+- `flutter pub get`
+
+### 4) Run on Android / iOS
+- Android: `flutter run -d android`
+- iOS (macOS only): `flutter run -d ios`
+
 ---
 
 ## Problem Statement
