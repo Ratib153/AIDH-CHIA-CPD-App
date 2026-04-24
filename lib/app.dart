@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'auth/login_screen.dart';
 import 'features/activities/activities_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/export/export_screen.dart';
@@ -15,13 +17,85 @@ class ChiaCpdApp extends StatelessWidget {
       title: 'CPD Tracker',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false,
-      home: const AppScaffold(),
+      home: const AuthGate(),
     );
   }
 }
 
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _isLoading = true;
+  bool _isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final loggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+    setState(() {
+      _isLoggedIn = loggedIn;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _login(String email, String password) async {
+    if (email == 'test@chia.com' && password == 'password123') {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', true);
+
+      setState(() {
+        _isLoggedIn = true;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid email or password')),
+      );
+    }
+  }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', false);
+
+    setState(() {
+      _isLoggedIn = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_isLoggedIn) {
+      return AppScaffold(onLogout: _logout);
+    }
+
+    return LoginScreen(onLogin: _login);
+  }
+}
+
 class AppScaffold extends StatefulWidget {
-  const AppScaffold({super.key});
+  final Future<void> Function() onLogout;
+
+  const AppScaffold({
+    super.key,
+    required this.onLogout,
+  });
 
   @override
   State<AppScaffold> createState() => _AppScaffoldState();
@@ -41,6 +115,13 @@ class _AppScaffoldState extends State<AppScaffold> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_currentIndex],
+      floatingActionButton: _currentIndex == 2
+          ? FloatingActionButton.extended(
+              onPressed: widget.onLogout,
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout'),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
