@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,21 +15,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   String? _errorMessage;
+  bool _isLoading = false;
 
-  // Input validation rules:
-  // - Email must follow valid format
-  // - Password must be at least 6 characters
-  // - Empty fields are not allowed
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Reset error
     setState(() {
       _errorMessage = null;
     });
 
-    // Empty fields
     if (email.isEmpty || password.isEmpty) {
       setState(() {
         _errorMessage = "Please enter both email and password";
@@ -36,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Invalid email format
     final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
     if (!emailRegex.hasMatch(email)) {
       setState(() {
@@ -45,7 +40,6 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Weak password
     if (password.length < 6) {
       setState(() {
         _errorMessage = "Password must be at least 6 characters";
@@ -53,8 +47,39 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Passed validation
-    widget.onLogin(email, password);
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // AuthGate will automatically redirect
+      await widget.onLogin(email, password);
+
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _errorMessage = e.message ?? "Login failed. Please try again.";
+      });
+    } catch (_) {
+      setState(() {
+        _errorMessage = "Something went wrong. Please try again.";
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -78,24 +103,26 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Error message display
             if (_errorMessage != null)
               Text(
                 _errorMessage!,
                 style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
               ),
 
             const SizedBox(height: 10),
 
             ElevatedButton(
-              onPressed: _handleLogin,
-              child: const Text('Login'),
+              onPressed: _isLoading ? null : _handleLogin,
+              child: _isLoading
+                  ? const CircularProgressIndicator()
+                  : const Text('Login'),
             ),
 
             const SizedBox(height: 20),
 
             const Text(
-              "Prototype: Credentials are not stored.\nFuture version will use secure authentication (e.g., Firebase).",
+              "Firebase Authentication is used to securely manage login.\nPasswords are not stored locally.",
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),

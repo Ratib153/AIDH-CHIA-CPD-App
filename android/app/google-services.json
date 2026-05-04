@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1020090244169",
+    "project_id": "aidh-chia-cpd-app",
+    "storage_bucket": "aidh-chia-cpd-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1020090244169:android:f72d7c4ca645d256b93398",
+        "android_client_info": {
+          "package_name": "com.example.aidh_chia_cpd_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA61GqOYfxMs0DI8N0kY5vMcCla75c3M-A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

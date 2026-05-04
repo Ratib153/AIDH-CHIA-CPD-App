@@ -1,5 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'auth/login_screen.dart';
 import 'features/activities/activities_screen.dart';
@@ -22,80 +22,39 @@ class ChiaCpdApp extends StatelessWidget {
   }
 }
 
-class AuthGate extends StatefulWidget {
+class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
   @override
-  State<AuthGate> createState() => _AuthGateState();
-}
-
-class _AuthGateState extends State<AuthGate> {
-  bool _isLoading = true;
-  bool _isLoggedIn = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkLoginStatus();
-  }
-
-  Future<void> _checkLoginStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final loggedIn = prefs.getBool('isLoggedIn') ?? false;
-
-    setState(() {
-      _isLoggedIn = loggedIn;
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _login(String email, String password) async {
-    if (email == 'test@chia.com' && password == 'password123') {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isLoggedIn', true);
-
-      setState(() {
-        _isLoggedIn = true;
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid email or password')),
-      );
-    }
-  }
-
-  Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', false);
-
-    setState(() {
-      _isLoggedIn = false;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // loading
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    if (_isLoggedIn) {
-      return AppScaffold(onLogout: _logout);
-    }
+        // logged in
+        if (snapshot.hasData) {
+          return const AppScaffold();
+        }
 
-    return LoginScreen(onLogin: _login);
+        // not logged in
+        return LoginScreen(
+          onLogin: (email, password) async {
+            // nothing needed here anymore
+          },
+        );
+      },
+    );
   }
 }
 
 class AppScaffold extends StatefulWidget {
-  final Future<void> Function() onLogout;
-
-  const AppScaffold({
-    super.key,
-    required this.onLogout,
-  });
+  const AppScaffold({super.key});
 
   @override
   State<AppScaffold> createState() => _AppScaffoldState();
@@ -111,13 +70,17 @@ class _AppScaffoldState extends State<AppScaffold> {
     ExportScreen(),
   ];
 
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_currentIndex],
       floatingActionButton: _currentIndex == 2
           ? FloatingActionButton.extended(
-              onPressed: widget.onLogout,
+              onPressed: _logout,
               icon: const Icon(Icons.logout),
               label: const Text('Logout'),
             )
