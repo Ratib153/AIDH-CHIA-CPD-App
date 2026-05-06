@@ -1,53 +1,53 @@
 import 'package:flutter/material.dart';
 
-class ProfileScreen extends StatelessWidget {
+import '../../database/database_service.dart';
+
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const _SimplePlaceholder(
-      title: 'Profile',
-      subtitle: 'Frontend-only placeholder for user profile.',
-      icon: Icons.person,
-    );
-  }
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _SimplePlaceholder extends StatelessWidget {
-  const _SimplePlaceholder({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
+class _ProfileScreenState extends State<ProfileScreen> {
+  final DatabaseService _databaseService = DatabaseService.instance;
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      child: FutureBuilder(
+        future: _databaseService.getActiveCycle(),
+        builder: (context, snapshot) {
+          final cycle = snapshot.data;
+          return ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              Icon(icon, size: 54, color: const Color(0xFF0F6FFF)),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge,
+              Text('Profile', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 12),
+              const Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Color(0xFF0082C8),
+                    child: Icon(Icons.person, color: Colors.white),
+                  ),
+                  title: Text('CHIA Professional'),
+                  subtitle: Text('Local profile settings will be added in next phase.'),
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.autorenew),
+                  title: const Text('Active Recertification Cycle'),
+                  subtitle: Text(
+                    cycle == null
+                        ? 'No active cycle found'
+                        : '${cycle.cycleName}\n${cycle.startDate} to ${cycle.endDate}',
+                  ),
+                ),
               ),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }

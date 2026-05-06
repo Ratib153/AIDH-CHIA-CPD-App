@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static const _primary = Color(0xFF0F6FFF);
-  static const _surface = Color(0xFFF7F9FC);
+  static const _primary = Color(0xFF0082C8);
+  static const _surface = Color(0xFFF1F1F1);
 
   static ThemeData get lightTheme {
     return ThemeData(

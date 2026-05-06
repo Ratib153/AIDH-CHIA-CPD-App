@@ -1,333 +1,248 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
-class DashboardScreen extends StatelessWidget {
+import '../../constants/cpd_categories.dart';
+import '../../database/database_service.dart';
+import '../../models/cpd_activity.dart';
+import '../activities/add_activity_screen.dart';
+import '../export/export_screen.dart';
+
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
 
+class _DashboardScreenState extends State<DashboardScreen> {
+  final DatabaseService _databaseService = DatabaseService.instance;
+
+  Future<_DashboardData> _loadData() async {
+    final cycle = await _databaseService.getActiveCycle();
+    if (cycle?.id == null) {
+      return const _DashboardData.empty();
+    }
+
+    final activities = await _databaseService.getActivitiesByCycle(cycle!.id!);
+    final totalPoints = await _databaseService.getTotalPointsByCycle(cycle.id!);
+    final pointsByCategory = await _databaseService.getPointsByCategory(cycle.id!);
+    final domainTotals = <String, double>{for (final d in ['A', 'B', 'C', 'D', 'E', 'F']) d: 0};
+    for (final activity in activities) {
+      final code = activity.competencyDomain;
+      if (code != null && domainTotals.containsKey(code)) {
+        domainTotals[code] = domainTotals[code]! + activity.pointsClaimed;
+      }
+    }
+
+    return _DashboardData(
+      cycleName: cycle.cycleName,
+      endDate: cycle.endDate,
+      targetPoints: cycle.targetPoints,
+      totalPoints: totalPoints,
+      pointsByCategory: pointsByCategory,
+      domainTotals: domainTotals,
+      recentActivities: activities.take(5).toList(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('CPD Tracker', style: textTheme.headlineSmall),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Your Progress', style: textTheme.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Certification Cycle 2026-2029',
-                      style: textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: const [
-                        _ProgressRing(percentage: 0.86, centerTop: '86%', centerBottom: '70/60'),
-                        SizedBox(width: 16),
-                        Expanded(child: _ProgressStats()),
+      child: FutureBuilder<_DashboardData>(
+        future: _loadData(),
+        builder: (context, snapshot) {
+          final data = snapshot.data;
+          if (data == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final progress = data.targetPoints == 0
+              ? 0.0
+              : (data.totalPoints / data.targetPoints).clamp(0, 1);
+          final remaining = (data.targetPoints - data.totalPoints).clamp(0, data.targetPoints);
+          final expiry = DateTime.parse(data.endDate);
+          final isExpiryNear = expiry.difference(DateTime.now()).inDays <= 180;
+
+          return RefreshIndicator(
+            onRefresh: () async => setState(() {}),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+              children: [
+                Text('CHIA CPD Dashboard', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Active cycle: ${data.cycleName}'),
+                        Text('Expiry: ${data.endDate}'),
+                        const SizedBox(height: 10),
+                        LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 10,
+                          backgroundColor: const Color(0xFFE0E0E0),
+                          color: const Color(0xFF0082C8),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Points claimed: ${data.totalPoints.toStringAsFixed(1)} / ${data.targetPoints.toStringAsFixed(0)}',
+                        ),
+                        Text('Points remaining: ${remaining.toStringAsFixed(1)}'),
                       ],
+                    ),
+                  ),
+                ),
+                if (isExpiryNear)
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Your CHIA credential expires on ${data.endDate}. Ensure you submit before this date.',
+                    ),
+                  ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const AddActivityScreen()),
+                          );
+                          if (mounted) setState(() {});
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('+ Add Activity'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ExportScreen()),
+                          );
+                        },
+                        icon: const Icon(Icons.file_download_outlined),
+                        label: const Text('Export Journal'),
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const _ActionGrid(),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Recent Activities', style: textTheme.titleMedium),
-                TextButton(onPressed: () {}, child: const Text('See All')),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const _ActivityTile(
-              title: 'AHIMA Conference 2024',
-              subtitle: 'Conference · Oct 15, 2024',
-              points: '15',
-            ),
-            const _ActivityTile(
-              title: 'Health Data Analytics Course',
-              subtitle: 'Education · Sep 28, 2024',
-              points: '10',
-            ),
-            const _ActivityTile(
-              title: 'Clinical Documentation Review',
-              subtitle: 'Research · Sep 10, 2024',
-              points: '5',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProgressRing extends StatelessWidget {
-  const _ProgressRing({
-    required this.percentage,
-    required this.centerTop,
-    required this.centerBottom,
-  });
-
-  final double percentage;
-  final String centerTop;
-  final String centerBottom;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 126,
-      height: 126,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(
-            size: const Size(126, 126),
-            painter: _ProgressPainter(percentage: percentage),
-          ),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                centerTop,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0D1321),
-                ),
-              ),
-              Text(
-                centerBottom,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF4A5570),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProgressPainter extends CustomPainter {
-  _ProgressPainter({required this.percentage});
-  final double percentage;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    const strokeWidth = 10.0;
-    final radius = (math.min(size.width, size.height) - strokeWidth) / 2;
-    final basePaint = Paint()
-      ..color = const Color(0xFFE7ECF5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-    final progressPaint = Paint()
-      ..color = const Color(0xFF0F6FFF)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawCircle(center, radius, basePaint);
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
-      2 * math.pi * percentage,
-      false,
-      progressPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ProgressPainter oldDelegate) {
-    return oldDelegate.percentage != percentage;
-  }
-}
-
-class _ProgressStats extends StatelessWidget {
-  const _ProgressStats();
-
-  @override
-  Widget build(BuildContext context) {
-    const valueStyle = TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w700,
-      color: Color(0xFF0D1321),
-    );
-    const labelStyle = TextStyle(
-      fontSize: 13,
-      fontWeight: FontWeight.w500,
-      color: Color(0xFF62708D),
-    );
-
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _StatRow(label: 'Points Earned', value: '70', valueStyle: valueStyle, labelStyle: labelStyle),
-        SizedBox(height: 8),
-        _StatRow(label: 'Points Remaining', value: '10', valueStyle: valueStyle, labelStyle: labelStyle),
-        SizedBox(height: 8),
-        _StatRow(label: 'Target', value: '60 pts', valueStyle: valueStyle, labelStyle: labelStyle),
-        SizedBox(height: 8),
-        _StatRow(label: 'On Track', value: 'Yes', valueStyle: valueStyle, labelStyle: labelStyle),
-        SizedBox(height: 8),
-        _StatRow(label: 'Time Left', value: '2 years', valueStyle: valueStyle, labelStyle: labelStyle),
-      ],
-    );
-  }
-}
-
-class _StatRow extends StatelessWidget {
-  const _StatRow({
-    required this.label,
-    required this.value,
-    required this.valueStyle,
-    required this.labelStyle,
-  });
-
-  final String label;
-  final String value;
-  final TextStyle valueStyle;
-  final TextStyle labelStyle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Text(label, style: labelStyle)),
-        Text(value, style: valueStyle),
-      ],
-    );
-  }
-}
-
-class _ActionGrid extends StatelessWidget {
-  const _ActionGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      crossAxisCount: 2,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 2.2,
-      children: const [
-        _ActionButton(label: 'Add Activity', icon: Icons.add_circle_outline),
-        _ActionButton(label: 'Scan Event', icon: Icons.qr_code_scanner),
-        _ActionButton(label: 'View All', icon: Icons.list_alt_outlined),
-        _ActionButton(label: 'Export', icon: Icons.file_download_outlined),
-      ],
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.label, required this.icon});
-
-  final String label;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {},
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 20, color: const Color(0xFF0F6FFF)),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0D1321),
+                const SizedBox(height: 18),
+                Text('Category Breakdown', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                ...kCpdCategories.map((category) {
+                  final id = category['id'] as int;
+                  final cap = category['cap'] as double?;
+                  final total = data.pointsByCategory[id] ?? 0;
+                  final reached = cap != null && total >= cap;
+                  final exceeded = cap != null && total > cap;
+                  final value = cap == null ? null : (total / cap).clamp(0, 1);
+                  final color = exceeded
+                      ? Colors.amber
+                      : reached
+                          ? Colors.green
+                          : const Color(0xFF0082C8);
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${category['id']}. ${category['name']}'),
+                          const SizedBox(height: 4),
+                          Text(
+                            cap == null
+                                ? '${total.toStringAsFixed(1)} pts'
+                                : '${total.toStringAsFixed(1)} / ${cap.toStringAsFixed(1)} pts',
+                          ),
+                          if (value != null) ...[
+                            const SizedBox(height: 6),
+                            LinearProgressIndicator(
+                              value: value,
+                              minHeight: 8,
+                              color: color,
+                              backgroundColor: const Color(0xFFE0E0E0),
+                            ),
+                          ],
+                          if (reached)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                exceeded
+                                    ? '⚠ Cap exceeded — excess pts do not count'
+                                    : '✓ Cap reached',
+                                style: TextStyle(color: color),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 14),
+                Text('Competency Domains', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                ...data.domainTotals.entries.map(
+                  (entry) => Card(
+                    child: ListTile(
+                      title: Text('Domain ${entry.key}'),
+                      trailing: Text('${entry.value.toStringAsFixed(1)} pts'),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
+                const SizedBox(height: 14),
+                Text('Recent Activities', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                ...data.recentActivities.map(
+                  (activity) => Card(
+                    child: ListTile(
+                      title: Text(activity.activityDescription),
+                      subtitle: Text('${activity.dateLogged} · ${activity.categoryName}'),
+                      trailing: Text('${activity.pointsClaimed.toStringAsFixed(1)} pts'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-class _ActivityTile extends StatelessWidget {
-  const _ActivityTile({
-    required this.title,
-    required this.subtitle,
-    required this.points,
+class _DashboardData {
+  const _DashboardData({
+    required this.cycleName,
+    required this.endDate,
+    required this.targetPoints,
+    required this.totalPoints,
+    required this.pointsByCategory,
+    required this.domainTotals,
+    required this.recentActivities,
   });
 
-  final String title;
-  final String subtitle;
-  final String points;
+  const _DashboardData.empty()
+      : cycleName = 'No Active Cycle',
+        endDate = 'N/A',
+        targetPoints = 60,
+        totalPoints = 0,
+        pointsByCategory = const {},
+        domainTotals = const {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
+        recentActivities = const [];
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        child: ListTile(
-          dense: true,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          title: Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF0D1321),
-            ),
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(subtitle),
-          ),
-          trailing: Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE9F0FF),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              points,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F6FFF),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  final String cycleName;
+  final String endDate;
+  final double targetPoints;
+  final double totalPoints;
+  final Map<int, double> pointsByCategory;
+  final Map<String, double> domainTotals;
+  final List<CpdActivity> recentActivities;
 }
