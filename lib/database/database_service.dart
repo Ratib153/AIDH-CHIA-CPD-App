@@ -162,6 +162,16 @@ class DatabaseService {
   Future<CpdActivity> addActivity(CpdActivity activity) async {
     try {
       final db = await database;
+      final isDuplicate = await hasPotentialDuplicate(
+        cycleId: activity.cycleId,
+        dateLogged: activity.dateLogged,
+        categoryId: activity.categoryId,
+        activityDescription: activity.activityDescription,
+        providerName: activity.providerName,
+      );
+      if (isDuplicate) {
+        throw StateError('Duplicate activity detected for this cycle.');
+      }
       final now = DateTime.now().toIso8601String();
       final points = _resolvePoints(activity);
       final toInsert = activity
@@ -189,6 +199,17 @@ class DatabaseService {
       }
       final now = DateTime.now().toIso8601String();
       final points = _resolvePoints(activity);
+      final isDuplicate = await hasPotentialDuplicate(
+        cycleId: activity.cycleId,
+        dateLogged: activity.dateLogged,
+        categoryId: activity.categoryId,
+        activityDescription: activity.activityDescription,
+        providerName: activity.providerName,
+        excludeId: activity.id,
+      );
+      if (isDuplicate) {
+        throw StateError('Duplicate activity detected for this cycle.');
+      }
       return db.update(
         'cpd_activities',
         activity.copyWith(pointsClaimed: points, updatedAt: now).toMap()..remove('id'),
@@ -348,6 +369,46 @@ class DatabaseService {
       };
     } catch (e) {
       throw Exception('Failed to build export data: $e');
+    }
+  }
+
+  Future<bool> hasPotentialDuplicate({
+    required int cycleId,
+    required String dateLogged,
+    required int categoryId,
+    required String activityDescription,
+    String? providerName,
+    int? excludeId,
+  }) async {
+    try {
+      final db = await database;
+      final normalizedDescription = activityDescription.trim().toLowerCase();
+      final normalizedProvider = (providerName ?? '').trim().toLowerCase();
+      final rows = await db.query(
+        'cpd_activities',
+        columns: ['id'],
+        where: '''
+          cycle_id = ?
+          AND date_logged = ?
+          AND category_id = ?
+          AND LOWER(TRIM(activity_description)) = ?
+          AND LOWER(TRIM(COALESCE(provider_name, ''))) = ?
+          AND deleted_at IS NULL
+          ${excludeId != null ? 'AND id != ?' : ''}
+        ''',
+        whereArgs: [
+          cycleId,
+          dateLogged,
+          categoryId,
+          normalizedDescription,
+          normalizedProvider,
+          if (excludeId != null) excludeId,
+        ],
+        limit: 1,
+      );
+      return rows.isNotEmpty;
+    } catch (e) {
+      throw Exception('Failed duplicate check: $e');
     }
   }
 

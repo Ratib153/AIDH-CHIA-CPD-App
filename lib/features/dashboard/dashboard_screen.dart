@@ -57,7 +57,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           final progress = data.targetPoints == 0
               ? 0.0
-              : (data.totalPoints / data.targetPoints).clamp(0, 1);
+              : (data.totalPoints / data.targetPoints).clamp(0.0, 1.0).toDouble();
           final remaining = (data.targetPoints - data.totalPoints).clamp(0, data.targetPoints);
           final expiry = DateTime.parse(data.endDate);
           final isExpiryNear = expiry.difference(DateTime.now()).inDays <= 180;
@@ -143,7 +143,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   final total = data.pointsByCategory[id] ?? 0;
                   final reached = cap != null && total >= cap;
                   final exceeded = cap != null && total > cap;
-                  final value = cap == null ? null : (total / cap).clamp(0, 1);
+                  final value =
+                      cap == null ? null : (total / cap).clamp(0.0, 1.0).toDouble();
                   final color = exceeded
                       ? Colors.amber
                       : reached

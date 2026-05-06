@@ -78,7 +78,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     final cap = category['cap'] as double?;
     String? warning;
     if (cap != null && currentCategoryPoints + _pointsClaimed > cap) {
-      final countable = (cap - currentCategoryPoints).clamp(0, _pointsClaimed);
+      final countable =
+          (cap - currentCategoryPoints).clamp(0.0, _pointsClaimed).toDouble();
       warning =
           'Adding this activity will exceed the cap for ${category['name']} (cap: ${cap.toStringAsFixed(0)} pts). '
           'Only ${countable.toStringAsFixed(1)} pts of your ${_pointsClaimed.toStringAsFixed(1)} pts claimed will count towards your 60-point total.';
@@ -109,12 +110,16 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     switch (_selectedCategoryId) {
       case 1:
         points = duration;
+        break;
       case 2:
         points = duration * (_cat2Type == 'credit' ? 1.5 : 1.0);
+        break;
       case 3:
         points = count * 0.25;
+        break;
       case 4:
         points = _cat4Role == 'speaker' ? (minutes / 15) * 2 : duration * 2;
+        break;
       case 5:
         final type = _fields['publicationType']!.text;
         points = switch (type) {
@@ -127,8 +132,10 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
           'education' => (contentHours / 100) * 10,
           _ => 0,
         };
+        break;
       case 6:
         points = years * 5;
+        break;
       case 7:
         final type = _fields['publicationType']!.text;
         final per = switch (type) {
@@ -139,13 +146,17 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
           'thesis' => 3.0,
           _ => 0,
         };
-        points = per * count;
+        points = (per * count).toDouble();
+        break;
       case 8:
         points = (sessions * minutesPerSession) / 60;
+        break;
       case 9:
         points = duration;
+        break;
       case 10:
         points = double.tryParse(_fields['points']!.text) ?? 0;
+        break;
       default:
         break;
     }
@@ -162,6 +173,18 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   Future<void> _save() async {
     final active = await _databaseService.getActiveCycle();
     if (!_formKey.currentState!.validate() || active?.id == null || _selectedCategoryId == null) {
+      return;
+    }
+    if ([1, 4, 8, 9, 10].contains(_selectedCategoryId) && !_eligibility) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please confirm eligibility for this category.')),
+      );
+      return;
+    }
+    if (!_hasRequiredCategoryFields(_selectedCategoryId!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete all required category fields.')),
+      );
       return;
     }
     if (!_isDateInCycle(active!.startDate, active.endDate, _dateLogged)) {
@@ -197,14 +220,64 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         createdAt: now,
         updatedAt: now,
       );
+
+      final duplicate = await _databaseService.hasPotentialDuplicate(
+        cycleId: active.id!,
+        dateLogged: activity.dateLogged,
+        categoryId: activity.categoryId,
+        activityDescription: activity.activityDescription,
+        providerName: activity.providerName,
+      );
+      if (duplicate) {
+        throw StateError('A matching activity already exists in this cycle.');
+      }
+
       await _databaseService.addActivity(activity);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Activity added — ${_pointsClaimed.toStringAsFixed(1)} pts logged')),
       );
       Navigator.of(context).pop(true);
+    } on StateError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Duplicate activity detected.')),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  bool _hasRequiredCategoryFields(int categoryId) {
+    bool hasText(String key) => _fields[key]!.text.trim().isNotEmpty;
+    bool hasNumber(String key) => (double.tryParse(_fields[key]!.text) ?? 0) > 0;
+    bool hasInt(String key) => (int.tryParse(_fields[key]!.text) ?? 0) > 0;
+
+    switch (categoryId) {
+      case 1:
+      case 2:
+      case 9:
+        return hasText('activityName') && hasNumber('durationHours');
+      case 3:
+        return hasText('activityName') && hasInt('count');
+      case 4:
+        return hasText('activityName') &&
+            (_cat4Role == 'speaker' ? hasInt('minutes') : hasNumber('durationHours'));
+      case 5:
+        if (!hasText('activityName') || !hasText('publicationType')) return false;
+        if (_fields['publicationType']!.text == 'exam') return hasInt('count');
+        if (_fields['publicationType']!.text == 'education') return hasNumber('contentHours');
+        return true;
+      case 6:
+        return hasText('activityName') && hasNumber('years');
+      case 7:
+        return hasText('activityName') && hasText('publicationType') && hasInt('count');
+      case 8:
+        return hasText('activityName') && hasInt('sessions') && hasInt('minutesPerSession');
+      case 10:
+        return hasText('activityName') && hasText('description') && hasNumber('points');
+      default:
+        return hasText('activityName');
     }
   }
 
