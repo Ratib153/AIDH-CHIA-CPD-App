@@ -7,12 +7,26 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../models/cpd_activity.dart';
 
+/// Result of an export operation.
+///
+/// `path` is `null` when the user cancelled the system Save As dialog.
+/// `cancelled` distinguishes a deliberate cancel from a real failure.
+class ExportResult {
+  const ExportResult({required this.path, this.cancelled = false});
+
+  final String? path;
+  final bool cancelled;
+
+  bool get success => path != null && path!.isNotEmpty;
+}
+
 class ExportService {
   const ExportService();
 
-  Future<void> exportToPdf(List<CpdActivity> activities) async {
+  Future<ExportResult> exportToPdf(List<CpdActivity> activities) async {
     final document = pw.Document();
-    final totalPoints = activities.fold<int>(0, (sum, item) => sum + item.points);
+    final totalPoints =
+        activities.fold<int>(0, (sum, item) => sum + item.points);
 
     document.addPage(
       pw.MultiPage(
@@ -52,7 +66,7 @@ class ExportService {
     );
 
     final bytes = await document.save();
-    await _saveFile(
+    return _saveFile(
       bytes: bytes,
       fileName: 'chia_cpd_export_${DateTime.now().millisecondsSinceEpoch}',
       extension: 'pdf',
@@ -60,7 +74,7 @@ class ExportService {
     );
   }
 
-  Future<void> exportToExcel(List<CpdActivity> activities) async {
+  Future<ExportResult> exportToExcel(List<CpdActivity> activities) async {
     final excel = Excel.createExcel();
     final sheet = excel['CPD Export'];
     sheet.appendRow([
@@ -86,7 +100,7 @@ class ExportService {
       throw StateError('Failed to generate Excel bytes.');
     }
 
-    await _saveFile(
+    return _saveFile(
       bytes: Uint8List.fromList(bytes),
       fileName: 'chia_cpd_export_${DateTime.now().millisecondsSinceEpoch}',
       extension: 'xlsx',
@@ -94,18 +108,43 @@ class ExportService {
     );
   }
 
-  Future<void> _saveFile({
+  Future<ExportResult> _saveFile({
     required Uint8List bytes,
     required String fileName,
     required String extension,
     required MimeType mimeType,
   }) async {
-    await FileSaver.instance.saveFile(
-      name: fileName,
-      bytes: bytes,
-      ext: extension,
-      mimeType: mimeType,
-    );
+    // `saveAs` opens the platform's native save dialog (Android: SAF; iOS:
+    // share/save sheet; desktop: native Save As; web: triggers download).
+    // This is more reliable than `saveFile` which silently writes to private
+    // app storage on Android 10+ (scoped storage) where users cannot find it.
+    try {
+      final result = await FileSaver.instance.saveAs(
+        name: fileName,
+        bytes: bytes,
+        ext: extension,
+        mimeType: mimeType,
+      );
+
+      // file_saver returns an empty string when the user cancels the dialog.
+      if (result == null || result.isEmpty) {
+        return const ExportResult(path: null, cancelled: true);
+      }
+      return ExportResult(path: result);
+    } catch (_) {
+      // Some platforms (notably web) don't implement `saveAs` and throw.
+      // Fall back to the silent `saveFile` so the export still completes.
+      final fallback = await FileSaver.instance.saveFile(
+        name: fileName,
+        bytes: bytes,
+        ext: extension,
+        mimeType: mimeType,
+      );
+      if (fallback.isEmpty) {
+        return const ExportResult(path: null, cancelled: false);
+      }
+      return ExportResult(path: fallback);
+    }
   }
 
   String _formatDate(DateTime date) {

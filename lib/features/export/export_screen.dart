@@ -189,22 +189,35 @@ class _ExportScreenState extends State<ExportScreen> {
               ))
           .toList();
 
-      if (type == _ExportType.pdf) {
-        await _exportService.exportToPdf(activities);
-      } else {
-        await _exportService.exportToExcel(activities);
-      }
+      final result = type == _ExportType.pdf
+          ? await _exportService.exportToPdf(activities)
+          : await _exportService.exportToExcel(activities);
 
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            type == _ExportType.pdf
-                ? 'PDF export saved successfully.'
-                : 'Excel export saved successfully.',
+      if (result.cancelled) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Export cancelled.')),
+        );
+      } else if (result.success) {
+        final label =
+            type == _ExportType.pdf ? 'PDF' : 'Excel';
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Saved as $label.\n${result.path}',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            duration: const Duration(seconds: 5),
           ),
-        ),
-      );
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Export did not complete. Please try a different location.')),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(
