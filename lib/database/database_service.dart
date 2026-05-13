@@ -20,6 +20,14 @@ class DatabaseService {
   Future<void> initDatabase() async {
     try {
       final db = await database;
+      // Defensive: ensure the key-value settings table exists even on existing DBs
+      // that were created before this table was added.
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT
+        );
+      ''');
       final countResult = await db.rawQuery('SELECT COUNT(*) AS count FROM recertification_cycles');
       final count = (countResult.first['count'] as int?) ?? 0;
       if (count == 0) {
@@ -55,6 +63,13 @@ class DatabaseService {
         target_points REAL NOT NULL DEFAULT 60,
         is_active INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
+      );
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
       );
     ''');
 
@@ -409,6 +424,40 @@ class DatabaseService {
       return rows.isNotEmpty;
     } catch (e) {
       throw Exception('Failed duplicate check: $e');
+    }
+  }
+
+  Future<String?> getSetting(String key) async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        'app_settings',
+        columns: ['value'],
+        where: 'key = ?',
+        whereArgs: [key],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      return rows.first['value'] as String?;
+    } catch (e) {
+      throw Exception('Failed to read setting "$key": $e');
+    }
+  }
+
+  Future<void> setSetting(String key, String? value) async {
+    try {
+      final db = await database;
+      if (value == null) {
+        await db.delete('app_settings', where: 'key = ?', whereArgs: [key]);
+        return;
+      }
+      await db.insert(
+        'app_settings',
+        {'key': key, 'value': value},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      throw Exception('Failed to write setting "$key": $e');
     }
   }
 

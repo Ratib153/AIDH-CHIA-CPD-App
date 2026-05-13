@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../../constants/cpd_categories.dart';
 import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
+import '../../theme/app_theme.dart';
+import '../activities/activity_list_screen.dart';
 import '../activities/add_activity_screen.dart';
 import '../export/export_screen.dart';
+import '../scan/qr_scanner_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -25,7 +28,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final activities = await _databaseService.getActivitiesByCycle(cycle!.id!);
     final totalPoints = await _databaseService.getTotalPointsByCycle(cycle.id!);
     final pointsByCategory = await _databaseService.getPointsByCategory(cycle.id!);
-    final domainTotals = <String, double>{for (final d in ['A', 'B', 'C', 'D', 'E', 'F']) d: 0};
+    final domainTotals = <String, double>{
+      for (final d in ['A', 'B', 'C', 'D', 'E', 'F']) d: 0
+    };
     for (final activity in activities) {
       final code = activity.competencyDomain;
       if (code != null && domainTotals.containsKey(code)) {
@@ -40,7 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       totalPoints: totalPoints,
       pointsByCategory: pointsByCategory,
       domainTotals: domainTotals,
-      recentActivities: activities.take(5).toList(),
+      recentActivities: activities.take(3).toList(),
     );
   }
 
@@ -55,159 +60,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final progress = data.targetPoints == 0
-              ? 0.0
-              : (data.totalPoints / data.targetPoints).clamp(0.0, 1.0).toDouble();
-          final remaining = (data.targetPoints - data.totalPoints).clamp(0, data.targetPoints);
-          final expiry = DateTime.parse(data.endDate);
-          final isExpiryNear = expiry.difference(DateTime.now()).inDays <= 180;
-
           return RefreshIndicator(
             onRefresh: () async => setState(() {}),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
               children: [
-                Text('CHIA CPD Dashboard', style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Active cycle: ${data.cycleName}'),
-                        Text('Expiry: ${data.endDate}'),
-                        const SizedBox(height: 10),
-                        LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 10,
-                          backgroundColor: const Color(0xFFE0E0E0),
-                          color: const Color(0xFF0082C8),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Points claimed: ${data.totalPoints.toStringAsFixed(1)} / ${data.targetPoints.toStringAsFixed(0)}',
-                        ),
-                        Text('Points remaining: ${remaining.toStringAsFixed(1)}'),
-                      ],
-                    ),
-                  ),
-                ),
-                if (isExpiryNear)
-                  Container(
-                    margin: const EdgeInsets.only(top: 12),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'Your CHIA credential expires on ${data.endDate}. Ensure you submit before this date.',
-                    ),
-                  ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const AddActivityScreen()),
-                          );
-                          if (mounted) setState(() {});
-                        },
-                        icon: const Icon(Icons.add),
-                        label: const Text('+ Add Activity'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const ExportScreen()),
-                          );
-                        },
-                        icon: const Icon(Icons.file_download_outlined),
-                        label: const Text('Export Journal'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Text('Category Breakdown', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                ...kCpdCategories.map((category) {
-                  final id = category['id'] as int;
-                  final cap = category['cap'] as double?;
-                  final total = data.pointsByCategory[id] ?? 0;
-                  final reached = cap != null && total >= cap;
-                  final exceeded = cap != null && total > cap;
-                  final value =
-                      cap == null ? null : (total / cap).clamp(0.0, 1.0).toDouble();
-                  final color = exceeded
-                      ? Colors.amber
-                      : reached
-                          ? Colors.green
-                          : const Color(0xFF0082C8);
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                _Header(cycleName: data.cycleName),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _HeroProgressCard(data: data),
+                      const SizedBox(height: 16),
+                      _QuickActionsRow(onChanged: () => setState(() {})),
+                      const SizedBox(height: 24),
+                      _SectionHeading('Category Breakdown'),
+                      const SizedBox(height: 12),
+                      _CategoryList(pointsByCategory: data.pointsByCategory),
+                      const SizedBox(height: 24),
+                      _SectionHeading('Competency Domains'),
+                      const SizedBox(height: 12),
+                      _DomainGrid(domainTotals: data.domainTotals),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('${category['id']}. ${category['name']}'),
-                          const SizedBox(height: 4),
-                          Text(
-                            cap == null
-                                ? '${total.toStringAsFixed(1)} pts'
-                                : '${total.toStringAsFixed(1)} / ${cap.toStringAsFixed(1)} pts',
-                          ),
-                          if (value != null) ...[
-                            const SizedBox(height: 6),
-                            LinearProgressIndicator(
-                              value: value,
-                              minHeight: 8,
-                              color: color,
-                              backgroundColor: const Color(0xFFE0E0E0),
-                            ),
-                          ],
-                          if (reached)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                exceeded
-                                    ? '⚠ Cap exceeded — excess pts do not count'
-                                    : '✓ Cap reached',
-                                style: TextStyle(color: color),
-                              ),
+                          _SectionHeading('Recent Activities'),
+                          if (data.recentActivities.isNotEmpty)
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const ActivityListScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text('View all  →'),
                             ),
                         ],
                       ),
-                    ),
-                  );
-                }),
-                const SizedBox(height: 14),
-                Text('Competency Domains', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                ...data.domainTotals.entries.map(
-                  (entry) => Card(
-                    child: ListTile(
-                      title: Text('Domain ${entry.key}'),
-                      trailing: Text('${entry.value.toStringAsFixed(1)} pts'),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text('Recent Activities', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 8),
-                ...data.recentActivities.map(
-                  (activity) => Card(
-                    child: ListTile(
-                      title: Text(activity.activityDescription),
-                      subtitle: Text('${activity.dateLogged} · ${activity.categoryName}'),
-                      trailing: Text('${activity.pointsClaimed.toStringAsFixed(1)} pts'),
-                    ),
+                      const SizedBox(height: 8),
+                      _RecentActivitiesList(activities: data.recentActivities),
+                    ],
                   ),
                 ),
               ],
@@ -217,6 +113,775 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.cycleName});
+
+  final String cycleName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _ChiaBrandMark(),
+          const SizedBox(height: 14),
+          Text(
+            'CHIA CPD Tracker',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Active cycle · $cycleName',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A horizontal "rectangular" brand mark used in place of an image asset.
+/// Renders the CHIA wordmark in a pill-shaped CHIA-blue container.
+class _ChiaBrandMark extends StatelessWidget {
+  const _ChiaBrandMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 130,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.verified_rounded, color: Colors.white, size: 18),
+          SizedBox(width: 6),
+          Text(
+            'CHIA',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroProgressCard extends StatelessWidget {
+  const _HeroProgressCard({required this.data});
+
+  final _DashboardData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = data.targetPoints == 0
+        ? 0.0
+        : (data.totalPoints / data.targetPoints).clamp(0.0, 1.0).toDouble();
+    final remaining =
+        (data.targetPoints - data.totalPoints).clamp(0, data.targetPoints).toDouble();
+    final goalReached = data.totalPoints >= data.targetPoints;
+
+    DateTime? expiry;
+    bool isExpiryNear = false;
+    try {
+      expiry = DateTime.parse(data.endDate);
+      isExpiryNear = expiry.difference(DateTime.now()).inDays <= 180;
+    } catch (_) {
+      expiry = null;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 110,
+                height: 110,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 110,
+                      height: 110,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 9,
+                        backgroundColor: Colors.white.withOpacity(0.2),
+                        valueColor:
+                            const AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                    if (goalReached)
+                      const Icon(Icons.check_rounded,
+                              color: Colors.white, size: 48)
+                    else
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _formatPts(data.totalPoints),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              height: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'pts',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _HeroLine(label: 'Active Cycle:', value: data.cycleName),
+                    const SizedBox(height: 6),
+                    _HeroLine(label: 'Expires:', value: data.endDate),
+                    const SizedBox(height: 6),
+                    _HeroLine(
+                      label: 'Points remaining:',
+                      value: remaining.toStringAsFixed(1),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (goalReached) ...[
+            const SizedBox(height: 14),
+            _HeroChip(
+              icon: Icons.check_circle,
+              label: 'Recertification complete!',
+              bg: AppColors.success,
+            ),
+          ] else if (isExpiryNear) ...[
+            const SizedBox(height: 14),
+            _HeroChip(
+              icon: Icons.warning_amber_rounded,
+              label: '⚠ Expires soon — ${data.endDate}',
+              bg: AppColors.warning,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroLine extends StatelessWidget {
+  const _HeroLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.85),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({required this.icon, required this.label, required this.bg});
+
+  final IconData icon;
+  final String label;
+  final Color bg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 18),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionsRow extends StatelessWidget {
+  const _QuickActionsRow({required this.onChanged});
+
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _QuickAction(
+            icon: Icons.add,
+            label: 'Add Activity',
+            isPrimary: true,
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddActivityScreen()),
+              );
+              onChanged();
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _QuickAction(
+            icon: Icons.qr_code_scanner,
+            label: 'Scan QR',
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const QrScannerScreen()),
+              );
+              onChanged();
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _QuickAction(
+            icon: Icons.file_download_outlined,
+            label: 'Export',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ExportScreen()),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isPrimary = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isPrimary ? AppColors.primary : Colors.white;
+    final fg = isPrimary ? Colors.white : AppColors.primary;
+    final borderColor =
+        isPrimary ? AppColors.primary : AppColors.primary.withOpacity(0.4);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          height: 84,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor, width: 1.5),
+            boxShadow: isPrimary ? null : AppShadows.card,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: fg, size: 24),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: fg,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: Theme.of(context).textTheme.titleLarge);
+  }
+}
+
+class _CategoryList extends StatelessWidget {
+  const _CategoryList({required this.pointsByCategory});
+
+  final Map<int, double> pointsByCategory;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final category in kCpdCategories) ...[
+          _CategoryRow(
+            categoryId: category['id'] as int,
+            name: category['name'] as String,
+            cap: category['cap'] as double?,
+            total: pointsByCategory[category['id'] as int] ?? 0,
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({
+    required this.categoryId,
+    required this.name,
+    required this.cap,
+    required this.total,
+  });
+
+  final int categoryId;
+  final String name;
+  final double? cap;
+  final double total;
+
+  @override
+  Widget build(BuildContext context) {
+    final reached = cap != null && total >= cap!;
+    final exceeded = cap != null && total > cap!;
+    final value =
+        cap == null ? null : (total / cap!).clamp(0.0, 1.0).toDouble();
+    final Color barColor = exceeded
+        ? AppColors.warning
+        : reached
+            ? AppColors.success
+            : AppColors.primary;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppShadows.card,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '$categoryId',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (cap == null)
+                Row(
+                  children: [
+                    Text(
+                      '${total.toStringAsFixed(1)} pts',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right,
+                        size: 18, color: AppColors.textHint),
+                  ],
+                )
+              else
+                Text(
+                  '${total.toStringAsFixed(1)} / ${cap!.toStringAsFixed(0)} pts',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: barColor,
+                  ),
+                ),
+            ],
+          ),
+          if (cap == null)
+            const Padding(
+              padding: EdgeInsets.only(top: 6, left: 38),
+              child: Text(
+                'Uncapped category',
+                style: TextStyle(color: AppColors.textHint, fontSize: 12),
+              ),
+            )
+          else ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: value,
+                minHeight: 6,
+                backgroundColor: AppColors.border,
+                color: barColor,
+              ),
+            ),
+            if (reached)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      exceeded
+                          ? Icons.warning_amber_rounded
+                          : Icons.check_circle,
+                      size: 16,
+                      color: barColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      exceeded
+                          ? 'Cap exceeded — excess does not count'
+                          : 'Cap reached',
+                      style: TextStyle(
+                        color: barColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DomainGrid extends StatelessWidget {
+  const _DomainGrid({required this.domainTotals});
+
+  final Map<String, double> domainTotals;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = domainTotals.entries.toList();
+    final nameByCode = {
+      for (final d in kCompetencyDomains) d['code']!: d['name']!,
+    };
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 2.4,
+      ),
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        final entry = entries[index];
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 34,
+                child: Text(
+                  entry.key,
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    height: 1,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      nameByCode[entry.key] ?? 'Domain ${entry.key}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${entry.value.toStringAsFixed(1)} pts',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RecentActivitiesList extends StatelessWidget {
+  const _RecentActivitiesList({required this.activities});
+
+  final List<CpdActivity> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activities.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppShadows.card,
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.inbox_outlined,
+                color: AppColors.primary, size: 36),
+            SizedBox(height: 8),
+            Text(
+              'No activities yet for this cycle.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (final activity in activities) ...[
+          _RecentActivityCard(activity: activity),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _RecentActivityCard extends StatelessWidget {
+  const _RecentActivityCard({required this.activity});
+
+  final CpdActivity activity;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.forCategory(activity.categoryId);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppShadows.card,
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            activity.activityDescription,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${activity.dateLogged} · ${activity.categoryName}',
+                            style: const TextStyle(
+                              color: AppColors.textHint,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '${activity.pointsClaimed.toStringAsFixed(1)} pts',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact point formatter:
+/// - 1.5  → "1.5"
+/// - 2.0  → "2"
+/// - 60.0 → "60"
+String _formatPts(double value) {
+  if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+  return value.toStringAsFixed(1);
 }
 
 class _DashboardData {

@@ -41,35 +41,67 @@ class _AppScaffoldState extends State<AppScaffold> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_currentIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() => _currentIndex = index);
-        },
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-        height: 72,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(color: AppColors.border, width: 1),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.list_alt_outlined),
-            selectedIcon: Icon(Icons.list_alt),
-            label: 'Activities',
+        ),
+        child: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            backgroundColor: Colors.white,
+            indicatorColor: AppColors.primaryLight,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return const IconThemeData(color: AppColors.primary, size: 24);
+              }
+              return const IconThemeData(color: AppColors.textHint, size: 24);
+            }),
+            labelTextStyle: WidgetStateProperty.resolveWith((states) {
+              final base = const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              );
+              if (states.contains(WidgetState.selected)) {
+                return base.copyWith(color: AppColors.primary);
+              }
+              return base.copyWith(color: AppColors.textHint);
+            }),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
+          child: NavigationBar(
+            selectedIndex: _currentIndex,
+            onDestinationSelected: (index) {
+              setState(() => _currentIndex = index);
+            },
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            height: 72,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.list_alt_outlined),
+                selectedIcon: Icon(Icons.list_alt),
+                label: 'Activities',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: 'Profile',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.file_download_outlined),
+                selectedIcon: Icon(Icons.file_download),
+                label: 'Export',
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.file_download_outlined),
-            selectedIcon: Icon(Icons.file_download),
-            label: 'Export',
-          ),
-        ],
+        ),
       ),
     );
   }
