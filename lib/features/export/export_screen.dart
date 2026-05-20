@@ -4,6 +4,7 @@ import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
 import '../../models/recertification_cycle.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/app_theme_extension.dart';
 import 'export_service.dart';
 
 enum _ExportType { pdf, excel }
@@ -40,22 +41,22 @@ class _ExportScreenState extends State<ExportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: FutureBuilder<_ExportViewData>(
-        future: _loadView(),
-        builder: (context, snapshot) {
-          final view = snapshot.data;
-          if (view == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final hasActivities = view.activities.isNotEmpty;
-          return ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              _Header(
-                showBack: Navigator.of(context).canPop(),
-                onBack: () => Navigator.of(context).maybePop(),
-              ),
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    return ColoredBox(
+      color: bg,
+      child: SafeArea(
+        child: FutureBuilder<_ExportViewData>(
+          future: _loadView(),
+          builder: (context, snapshot) {
+            final view = snapshot.data;
+            if (view == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final hasActivities = view.activities.isNotEmpty;
+            return ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                const _Header(),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
                 child: Column(
@@ -103,7 +104,7 @@ class _ExportScreenState extends State<ExportScreen> {
                           minimumSize: const Size.fromHeight(56),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16)),
-                          textStyle: const TextStyle(
+                          textStyle: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -135,10 +136,10 @@ class _ExportScreenState extends State<ExportScreen> {
                     ),
                     if (!hasActivities) ...[
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'Add at least one activity before exporting.',
                         style: TextStyle(
-                          color: AppColors.textHint,
+                          color: context.appExt.textHint,
                           fontSize: 12,
                         ),
                       ),
@@ -148,9 +149,10 @@ class _ExportScreenState extends State<ExportScreen> {
                   ],
                 ),
               ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -234,63 +236,43 @@ class _ExportScreenState extends State<ExportScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.showBack, required this.onBack});
-
-  final bool showBack;
-  final VoidCallback onBack;
+  const _Header();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: Colors.white,
-      padding: EdgeInsets.fromLTRB(showBack ? 8 : 20, showBack ? 8 : 22, 20, 22),
-      child: Column(
+      color: context.appExt.header,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (showBack)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: IconButton(
-                onPressed: onBack,
-                icon: const Icon(Icons.arrow_back, color: AppColors.primary),
-                tooltip: 'Back',
-              ),
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: context.appExt.primaryTint,
+              borderRadius: BorderRadius.circular(14),
             ),
-          Padding(
-            padding: EdgeInsets.only(left: showBack ? 12 : 0),
-            child: Row(
+            child: const Icon(
+              Icons.file_download_outlined,
+              size: 28,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.file_download_outlined,
-                    size: 28,
-                    color: AppColors.primary,
-                  ),
+                Text(
+                  'Export CPD Journal',
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Export CPD Journal',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Download your CPD record as PDF or Excel to submit for recertification.',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 4),
+                Text(
+                  'Download your CPD record as PDF or Excel to submit for recertification.',
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
             ),
@@ -308,6 +290,7 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ext = context.appExt;
     final hasActivities = view.activities.isNotEmpty;
     final progress = view.cycle == null || view.cycle!.targetPoints == 0
         ? 0.0
@@ -318,9 +301,9 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appExt.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,15 +314,15 @@ class _SummaryCard extends StatelessWidget {
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  color: hasActivities ? AppColors.success : AppColors.textHint,
+                  color: hasActivities ? AppColors.success : ext.textHint,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 hasActivities ? 'Ready to export' : 'Nothing to export yet',
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: ext.textPrimary,
                   fontWeight: FontWeight.w800,
                   fontSize: 15,
                 ),
@@ -349,13 +332,13 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              const Icon(Icons.assignment_outlined,
-                  size: 18, color: AppColors.textHint),
+              Icon(Icons.assignment_outlined,
+                  size: 18, color: ext.textHint),
               const SizedBox(width: 8),
               Text(
                 '${view.activities.length} ${view.activities.length == 1 ? 'activity' : 'activities'} recorded',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  color: ext.textSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -365,13 +348,12 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.show_chart,
-                  size: 18, color: AppColors.textHint),
+              Icon(Icons.show_chart, size: 18, color: ext.textHint),
               const SizedBox(width: 8),
               Text(
                 '${view.totalPoints.toStringAsFixed(1)} / 60 pts total',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  color: ext.textSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -385,15 +367,15 @@ class _SummaryCard extends StatelessWidget {
               value: progress,
               minHeight: 6,
               color: AppColors.primary,
-              backgroundColor: AppColors.border,
+              backgroundColor: ext.border,
             ),
           ),
           if (view.cycle != null) ...[
             const SizedBox(height: 10),
             Text(
               '${view.cycle!.cycleName} · ${view.cycle!.startDate} → ${view.cycle!.endDate}',
-              style: const TextStyle(
-                color: AppColors.textHint,
+              style: TextStyle(
+                color: ext.textHint,
                 fontSize: 12,
               ),
             ),
@@ -423,6 +405,7 @@ class _FormatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ext = context.appExt;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -432,13 +415,13 @@ class _FormatCard extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primaryLight : Colors.white,
+            color: selected ? ext.primaryTint : ext.card,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border,
+              color: selected ? AppColors.primary : ext.border,
               width: selected ? 2 : 1,
             ),
-            boxShadow: AppShadows.card,
+            boxShadow: ext.cardShadow,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -455,8 +438,8 @@ class _FormatCard extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 title,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: ext.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                 ),
@@ -464,8 +447,8 @@ class _FormatCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: AppColors.textHint,
+                style: TextStyle(
+                  color: ext.textHint,
                   fontSize: 12,
                   height: 1.3,
                 ),
@@ -474,10 +457,10 @@ class _FormatCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.check_circle,
+                    const Icon(Icons.check_circle,
                         color: AppColors.primary, size: 16),
                     const SizedBox(width: 4),
-                    const Text(
+                    Text(
                       'Selected',
                       style: TextStyle(
                         color: AppColors.primary,
@@ -499,11 +482,13 @@ class _FormatCard extends StatelessWidget {
 class _SubmissionReminder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final ext = context.appExt;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primaryLight,
+        color: ext.primaryTint,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ext.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -520,11 +505,11 @@ class _SubmissionReminder extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'After exporting, email your journal to certification@digitalhealth.org.au '
                   'along with payment of the recertification fee.',
                   style: TextStyle(
-                    color: AppColors.textSecondary,
+                    color: ext.textSecondary,
                     fontSize: 13,
                     height: 1.4,
                   ),

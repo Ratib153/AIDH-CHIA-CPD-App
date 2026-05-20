@@ -4,6 +4,7 @@ import '../../constants/cpd_categories.dart';
 import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/app_theme_extension.dart';
 import 'activity_detail_screen.dart';
 import 'add_activity_screen.dart';
 
@@ -170,7 +171,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: context.appExt.header,
       padding: const EdgeInsets.fromLTRB(8, 8, 20, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,24 +217,25 @@ class _FilterChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: context.appExt.header,
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _chip(label: 'All', value: 0),
+            _chip(context, label: 'All', value: 0),
             for (int i = 1; i <= 10; i++)
-              _chip(label: 'Cat $i', value: i),
+              _chip(context, label: 'Cat $i', value: i),
             const SizedBox(width: 4),
             Container(
               width: 1,
               height: 24,
               margin: const EdgeInsets.symmetric(horizontal: 6),
-              color: AppColors.border,
+              color: context.appExt.border,
             ),
             for (final d in kCompetencyDomains)
               _chip(
+                context,
                 label: 'Domain ${d['code']}',
                 value: d['code']!,
               ),
@@ -243,7 +245,7 @@ class _FilterChips extends StatelessWidget {
     );
   }
 
-  Widget _chip({required String label, required Object value}) {
+  Widget _chip(BuildContext context, {required String label, required Object value}) {
     final isSelected = active == value;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -253,16 +255,18 @@ class _FilterChips extends StatelessWidget {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary : Colors.white,
+            color: isSelected
+                ? AppColors.primary
+                : context.appExt.chipUnselectedBackground,
             border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.border,
+              color: isSelected ? AppColors.primary : context.appExt.border,
             ),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? Colors.white : AppColors.textSecondary,
+              color: isSelected ? Colors.white : context.appExt.textSecondary,
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),
@@ -348,12 +352,12 @@ class _CategoryGroupHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: AppColors.primaryLight,
+            color: context.appExt.primaryTint,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             'Cat $categoryId',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.primary,
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -364,10 +368,10 @@ class _CategoryGroupHeader extends StatelessWidget {
         Expanded(
           child: Text(
             name,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              color: context.appExt.textPrimary,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -376,8 +380,8 @@ class _CategoryGroupHeader extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           '${total.toStringAsFixed(1)} pts',
-          style: const TextStyle(
-            color: AppColors.textSecondary,
+          style: TextStyle(
+            color: context.appExt.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
@@ -438,9 +442,9 @@ class _ActivityCard extends StatelessWidget {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.appExt.card,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: AppShadows.card,
+              boxShadow: context.appExt.cardShadow,
             ),
             child: IntrinsicHeight(
               child: Row(
@@ -468,10 +472,10 @@ class _ActivityCard extends StatelessWidget {
                               children: [
                                 Text(
                                   activity.activityDescription,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimary,
+                                    color: context.appExt.textPrimary,
                                     height: 1.25,
                                   ),
                                   maxLines: 2,
@@ -481,8 +485,8 @@ class _ActivityCard extends StatelessWidget {
                                 Text(
                                   '${activity.dateLogged}'
                                   '${activity.providerName != null && activity.providerName!.isNotEmpty ? ' · ${activity.providerName}' : ''}',
-                                  style: const TextStyle(
-                                    color: AppColors.textHint,
+                                  style: TextStyle(
+                                    color: context.appExt.textHint,
                                     fontSize: 12,
                                   ),
                                   maxLines: 1,
@@ -493,12 +497,12 @@ class _ActivityCard extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primaryLight,
+                                    color: context.appExt.primaryTint,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
                                     'Domain ${activity.competencyDomain ?? '-'}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: AppColors.primary,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
@@ -511,7 +515,7 @@ class _ActivityCard extends StatelessWidget {
                           const SizedBox(width: 10),
                           Text(
                             '${activity.pointsClaimed.toStringAsFixed(1)} pts',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.primary,
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -548,7 +552,7 @@ class _EmptyState extends StatelessWidget {
               width: 110,
               height: 110,
               decoration: BoxDecoration(
-                color: AppColors.primaryLight,
+                color: context.appExt.primaryTint,
                 borderRadius: BorderRadius.circular(28),
               ),
               child: const Icon(
@@ -563,11 +567,11 @@ class _EmptyState extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Tap + Add Activity to log your first CPD activity.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.textSecondary,
+                color: context.appExt.textSecondary,
                 fontSize: 13,
               ),
             ),

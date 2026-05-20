@@ -4,10 +4,12 @@ import '../../constants/cpd_categories.dart';
 import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/app_theme_extension.dart';
 import '../activities/activity_list_screen.dart';
 import '../activities/add_activity_screen.dart';
-import '../export/export_screen.dart';
+import '../../navigation/app_navigator.dart';
 import '../scan/qr_scanner_screen.dart';
+import '../../widgets/category_info_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -124,7 +126,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: context.appExt.header,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,39 +148,22 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// A horizontal "rectangular" brand mark used in place of an image asset.
-/// Renders the CHIA wordmark in a pill-shaped CHIA-blue container.
+/// Official CHIA horizontal wordmark (Certified Health Informatician Australasia).
 class _ChiaBrandMark extends StatelessWidget {
   const _ChiaBrandMark();
 
+  static const _logoAsset = 'assets/images/chia_logo.png';
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 130,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(Icons.verified_rounded, color: Colors.white, size: 18),
-          SizedBox(width: 6),
-          Text(
-            'CHIA',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 3,
-            ),
-          ),
-        ],
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Image.asset(
+        _logoAsset,
+        height: 48,
+        fit: BoxFit.contain,
+        alignment: Alignment.centerLeft,
+        filterQuality: FilterQuality.high,
       ),
     );
   }
@@ -217,7 +202,7 @@ class _HeroProgressCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,7 +236,7 @@ class _HeroProgressCard extends StatelessWidget {
                         children: [
                           Text(
                             _formatPts(data.totalPoints),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 28,
                               fontWeight: FontWeight.w800,
@@ -336,7 +321,7 @@ class _HeroLine extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -371,7 +356,7 @@ class _HeroChip extends StatelessWidget {
           Flexible(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
@@ -425,9 +410,7 @@ class _QuickActionsRow extends StatelessWidget {
             icon: Icons.file_download_outlined,
             label: 'Export',
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ExportScreen()),
-              );
+              AppNavigator.maybeOf(context)?.selectTab(3);
             },
           ),
         ),
@@ -451,7 +434,8 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isPrimary ? AppColors.primary : Colors.white;
+    final ext = context.appExt;
+    final bg = isPrimary ? AppColors.primary : ext.card;
     final fg = isPrimary ? Colors.white : AppColors.primary;
     final borderColor =
         isPrimary ? AppColors.primary : AppColors.primary.withOpacity(0.4);
@@ -468,7 +452,7 @@ class _QuickAction extends StatelessWidget {
             color: bg,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: borderColor, width: 1.5),
-            boxShadow: isPrimary ? null : AppShadows.card,
+            boxShadow: isPrimary ? null : ext.cardShadow,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -553,82 +537,75 @@ class _CategoryRow extends StatelessWidget {
             ? AppColors.success
             : AppColors.primary;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => CategoryInfoSheet.show(context, categoryId),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: context.appExt.card,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: context.appExt.cardShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  '$categoryId',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (cap == null)
-                Row(
-                  children: [
-                    Text(
-                      '${total.toStringAsFixed(1)} pts',
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$categoryId',
                       style: const TextStyle(
-                        fontSize: 13,
+                        color: Colors.white,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right,
-                        size: 18, color: AppColors.textHint),
-                  ],
-                )
-              else
-                Text(
-                  '${total.toStringAsFixed(1)} / ${cap!.toStringAsFixed(0)} pts',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: barColor,
                   ),
-                ),
-            ],
-          ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: context.appExt.textPrimary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    cap == null
+                        ? '${total.toStringAsFixed(1)} pts'
+                        : '${total.toStringAsFixed(1)} / ${cap!.toStringAsFixed(0)} pts',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: cap == null ? AppColors.primary : barColor,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.chevron_right,
+                      size: 18, color: context.appExt.textHint),
+                ],
+              ),
           if (cap == null)
-            const Padding(
-              padding: EdgeInsets.only(top: 6, left: 38),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 38),
               child: Text(
                 'Uncapped category',
-                style: TextStyle(color: AppColors.textHint, fontSize: 12),
+                style: TextStyle(color: context.appExt.textHint, fontSize: 12),
               ),
             )
           else ...[
@@ -638,7 +615,7 @@ class _CategoryRow extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: value,
                 minHeight: 6,
-                backgroundColor: AppColors.border,
+                backgroundColor: context.appExt.border,
                 color: barColor,
               ),
             ),
@@ -668,9 +645,11 @@ class _CategoryRow extends StatelessWidget {
                   ],
                 ),
               ),
+            ],
           ],
-        ],
+        ),
       ),
+    ),
     );
   }
 }
@@ -704,7 +683,7 @@ class _DomainGrid extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: AppColors.primaryLight,
+            color: context.appExt.primaryTint,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -714,7 +693,7 @@ class _DomainGrid extends StatelessWidget {
                 width: 32,
                 child: Text(
                   entry.key,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
                     color: AppColors.primary,
@@ -732,9 +711,9 @@ class _DomainGrid extends StatelessWidget {
                     Flexible(
                       child: Text(
                         nameByCode[entry.key] ?? 'Domain ${entry.key}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: AppColors.textSecondary,
+                          color: context.appExt.textSecondary,
                           fontWeight: FontWeight.w500,
                           height: 1.2,
                         ),
@@ -745,10 +724,10 @@ class _DomainGrid extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '${entry.value.toStringAsFixed(1)} pts',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
+                        color: context.appExt.textPrimary,
                       ),
                     ),
                   ],
@@ -774,18 +753,18 @@ class _RecentActivitiesList extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.appExt.card,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: AppShadows.card,
+          boxShadow: context.appExt.cardShadow,
         ),
-        child: const Column(
+        child: Column(
           children: [
-            Icon(Icons.inbox_outlined,
+            const Icon(Icons.inbox_outlined,
                 color: AppColors.primary, size: 36),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'No activities yet for this cycle.',
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: context.appExt.textSecondary),
             ),
           ],
         ),
@@ -812,9 +791,9 @@ class _RecentActivityCard extends StatelessWidget {
     final accent = AppColors.forCategory(activity.categoryId);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appExt.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -842,10 +821,10 @@ class _RecentActivityCard extends StatelessWidget {
                         children: [
                           Text(
                             activity.activityDescription,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
-                              color: AppColors.textPrimary,
+                              color: context.appExt.textPrimary,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -853,8 +832,8 @@ class _RecentActivityCard extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             '${activity.dateLogged} · ${activity.categoryName}',
-                            style: const TextStyle(
-                              color: AppColors.textHint,
+                            style: TextStyle(
+                              color: context.appExt.textHint,
                               fontSize: 12,
                             ),
                           ),
@@ -864,7 +843,7 @@ class _RecentActivityCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     Text(
                       '${activity.pointsClaimed.toStringAsFixed(1)} pts',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w800,
                         fontSize: 14,

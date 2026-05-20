@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../models/cpd_activity.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/app_theme_extension.dart';
+import '../../widgets/category_info_sheet.dart';
 
 class ActivityDetailScreen extends StatelessWidget {
   const ActivityDetailScreen({super.key, required this.activity});
@@ -12,16 +14,29 @@ class ActivityDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = AppColors.forCategory(activity.categoryId);
     return Scaffold(
-      appBar: AppBar(title: const Text('Activity Details')),
+      appBar: AppBar(
+        title: const Text('Activity Details'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Category information',
+            onPressed: () => CategoryInfoSheet.show(
+              context,
+              activity.categoryId,
+              showLogActivityButton: false,
+            ),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.appExt.card,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: AppShadows.card,
+              boxShadow: context.appExt.cardShadow,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,7 +62,7 @@ class ActivityDetailScreen extends StatelessWidget {
                     const Spacer(),
                     Text(
                       '${activity.pointsClaimed.toStringAsFixed(1)} pts',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w800,
                         fontSize: 18,
@@ -58,17 +73,17 @@ class ActivityDetailScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   activity.activityDescription,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.appExt.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   activity.categoryName,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: context.appExt.textSecondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -121,9 +136,9 @@ class _DetailGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appExt.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Column(
@@ -131,7 +146,7 @@ class _DetailGroup extends StatelessWidget {
           for (int i = 0; i < children.length; i++) ...[
             children[i],
             if (i < children.length - 1)
-              const Divider(height: 1, color: AppColors.border),
+              Divider(height: 1, color: context.appExt.border),
           ],
         ],
       ),
@@ -161,8 +176,8 @@ class _DetailRow extends StatelessWidget {
             width: 130,
             child: Text(
               label,
-              style: const TextStyle(
-                color: AppColors.textHint,
+              style: TextStyle(
+                color: context.appExt.textHint,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -171,8 +186,8 @@ class _DetailRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: context.appExt.textPrimary,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),

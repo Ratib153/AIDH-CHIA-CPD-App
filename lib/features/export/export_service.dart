@@ -25,8 +25,10 @@ class ExportService {
 
   Future<ExportResult> exportToPdf(List<CpdActivity> activities) async {
     final document = pw.Document();
-    final totalPoints =
-        activities.fold<int>(0, (sum, item) => sum + item.points);
+    final totalPoints = activities.fold<double>(
+      0,
+      (sum, item) => sum + item.pointsClaimed,
+    );
 
     document.addPage(
       pw.MultiPage(
@@ -39,7 +41,7 @@ class ExportService {
             ),
             pw.SizedBox(height: 8),
             pw.Text('Total activities: ${activities.length}'),
-            pw.Text('Total points: $totalPoints'),
+            pw.Text('Total points: ${_formatPoints(totalPoints)}'),
             pw.SizedBox(height: 16),
             pw.TableHelper.fromTextArray(
               headers: const ['Title', 'Category', 'Date', 'Points', 'Notes'],
@@ -49,7 +51,7 @@ class ExportService {
                       activity.title,
                       activity.category,
                       _formatDate(activity.date),
-                      activity.points.toString(),
+                      _formatPoints(activity.pointsClaimed),
                       activity.notes ?? '',
                     ],
                   )
@@ -90,7 +92,7 @@ class ExportService {
         TextCellValue(activity.title),
         TextCellValue(activity.category),
         TextCellValue(_formatDate(activity.date)),
-        IntCellValue(activity.points),
+        DoubleCellValue(activity.pointsClaimed),
         TextCellValue(activity.notes ?? ''),
       ]);
     }
@@ -151,5 +153,13 @@ class ExportService {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '${date.year}-$month-$day';
+  }
+
+  /// Matches dashboard display: whole numbers without ".0", fractions kept.
+  String _formatPoints(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toStringAsFixed(1);
   }
 }

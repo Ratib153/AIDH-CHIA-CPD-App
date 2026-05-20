@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../constants/cpd_categories.dart';
 import '../../database/database_service.dart';
 import '../../models/recertification_cycle.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/app_theme_extension.dart';
+import '../../theme/theme_controller.dart';
 
 const _kSettingsDisplayName = 'profile.displayName';
 const _kSettingsCredentialNumber = 'profile.credentialNumber';
@@ -156,7 +159,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -173,7 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.border,
+                      color: context.appExt.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -184,9 +187,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Past cycles are kept for audit and evidence.',
-                  style: TextStyle(color: AppColors.textHint, fontSize: 13),
+                  style: TextStyle(color: context.appExt.textHint, fontSize: 13),
                 ),
                 const SizedBox(height: 14),
                 for (final cycle in all) ...[
@@ -205,7 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -223,7 +226,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.border,
+                      color: context.appExt.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -234,9 +237,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Reference for the 10 CHIA CPD categories.',
-                  style: TextStyle(color: AppColors.textHint, fontSize: 13),
+                  style: TextStyle(color: context.appExt.textHint, fontSize: 13),
                 ),
                 const SizedBox(height: 14),
                 Flexible(
@@ -280,7 +283,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
+                  color: context.appExt.primaryTint,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -320,10 +323,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('Close'),
             ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _openExternalUrl('mailto:$email');
+              },
+              icon: const Icon(Icons.mail_outline, size: 18),
+              label: const Text('Send email'),
+            ),
           ],
         );
       },
     );
+  }
+
+  Future<void> _openExternalUrl(String urlString) async {
+    final uri = Uri.parse(urlString);
+    final opened = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open link.')),
+      );
+    }
   }
 
   Future<void> _showRecertGuide() async {
@@ -343,14 +367,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.primaryLight,
+                color: context.appExt.primaryTint,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const SelectableText(
-                url,
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w700,
+              child: InkWell(
+                onTap: () {
+                  Navigator.pop(context);
+                  _openExternalUrl(url);
+                },
+                child: const Row(
+                  children: [
+                    Icon(Icons.open_in_new, color: AppColors.primary, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        url,
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -360,6 +398,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _openExternalUrl(url);
+            },
+            icon: const Icon(Icons.open_in_browser, size: 18),
+            label: const Text('Open in browser'),
           ),
         ],
       ),
@@ -420,6 +466,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 22),
                     Text(
+                      'Settings',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 10),
+                    const _AppearanceSettings(),
+                    const SizedBox(height: 22),
+                    Text(
                       'About & Help',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
@@ -465,7 +518,7 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: context.appExt.header,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
       child: Column(
         children: [
@@ -474,10 +527,10 @@ class _ProfileHeader extends StatelessWidget {
           if (!isEditing) ...[
             Text(
               displayName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
+                color: context.appExt.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -489,8 +542,8 @@ class _ProfileHeader extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 color: credentialNumber.isEmpty
-                    ? AppColors.textHint
-                    : AppColors.textSecondary,
+                    ? context.appExt.textHint
+                    : context.appExt.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -603,9 +656,9 @@ class _ActiveCycleCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appExt.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -616,7 +669,7 @@ class _ActiveCycleCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
+                  color: context.appExt.primaryTint,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.autorenew,
@@ -629,17 +682,17 @@ class _ActiveCycleCard extends StatelessWidget {
                   children: [
                     Text(
                       cycle.cycleName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
+                        color: context.appExt.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${_formatDate(cycle.startDate)} → ${_formatDate(cycle.endDate)}',
-                      style: const TextStyle(
-                        color: AppColors.textHint,
+                      style: TextStyle(
+                        color: context.appExt.textHint,
                         fontSize: 12,
                       ),
                     ),
@@ -653,10 +706,10 @@ class _ActiveCycleCard extends StatelessWidget {
             children: [
               Text(
                 '${totalPoints.toStringAsFixed(1)} / ${cycle.targetPoints.toStringAsFixed(0)} pts',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
+                  color: context.appExt.textPrimary,
                 ),
               ),
               const Spacer(),
@@ -673,7 +726,7 @@ class _ActiveCycleCard extends StatelessWidget {
               value: progress,
               minHeight: 6,
               color: AppColors.primary,
-              backgroundColor: AppColors.border,
+              backgroundColor: context.appExt.border,
             ),
           ),
         ],
@@ -729,9 +782,9 @@ class _ExpiryCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appExt.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
         border: Border(left: BorderSide(color: accent, width: 4)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -755,8 +808,8 @@ class _ExpiryCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   body,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: context.appExt.textSecondary,
                     fontSize: 13,
                     height: 1.4,
                   ),
@@ -787,9 +840,9 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appExt.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -851,7 +904,7 @@ class _SummaryTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.primaryLight,
+        color: context.appExt.primaryTint,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -859,7 +912,7 @@ class _SummaryTile extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.primary,
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -869,14 +922,58 @@ class _SummaryTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              color: context.appExt.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.w800,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AppearanceSettings extends StatelessWidget {
+  const _AppearanceSettings();
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = context.appExt;
+    return ListenableBuilder(
+      listenable: ThemeController.instance,
+      builder: (context, _) {
+        final isDark = ThemeController.instance.isDark;
+        return Container(
+          decoration: BoxDecoration(
+            color: ext.card,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: ext.cardShadow,
+          ),
+          child: SwitchListTile(
+            secondary: Icon(
+              isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+              color: AppColors.primary,
+            ),
+            title: Text(
+              'Dark mode',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: ext.textPrimary,
+              ),
+            ),
+            subtitle: Text(
+              'Use a dark appearance across the app',
+              style: TextStyle(
+                fontSize: 13,
+                color: ext.textSecondary,
+              ),
+            ),
+            value: isDark,
+            onChanged: ThemeController.instance.setDark,
+          ),
+        );
+      },
     );
   }
 }
@@ -896,9 +993,9 @@ class _AboutList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appExt.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
       ),
       child: Column(
         children: [
@@ -956,7 +1053,7 @@ class _AboutTile extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppColors.primaryLight,
+                color: context.appExt.primaryTint,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: AppColors.primary, size: 18),
@@ -965,8 +1062,8 @@ class _AboutTile extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  color: context.appExt.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -975,8 +1072,8 @@ class _AboutTile extends StatelessWidget {
             if (trailingText != null)
               Text(
                 trailingText!,
-                style: const TextStyle(
-                  color: AppColors.textHint,
+                style: TextStyle(
+                  color: context.appExt.textHint,
                   fontSize: 12,
                 ),
               )
@@ -999,9 +1096,9 @@ class _DangerZone extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appExt.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
         border: Border.all(color: AppColors.error.withOpacity(0.4)),
       ),
       child: Column(
@@ -1022,10 +1119,10 @@ class _DangerZone extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Starting a new cycle archives your current cycle. Existing activities will remain available in past cycles for audit.',
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: context.appExt.textSecondary,
               fontSize: 12,
               height: 1.4,
             ),
@@ -1060,10 +1157,10 @@ class _CycleListTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: cycle.isActive ? AppColors.primaryLight : Colors.white,
+        color: cycle.isActive ? context.appExt.primaryTint : context.appExt.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: cycle.isActive ? AppColors.primary : AppColors.border,
+          color: cycle.isActive ? AppColors.primary : context.appExt.border,
         ),
       ),
       child: Row(
@@ -1072,7 +1169,7 @@ class _CycleListTile extends StatelessWidget {
             cycle.isActive
                 ? Icons.radio_button_checked
                 : Icons.history_toggle_off,
-            color: cycle.isActive ? AppColors.primary : AppColors.textHint,
+            color: cycle.isActive ? AppColors.primary : context.appExt.textHint,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -1085,7 +1182,7 @@ class _CycleListTile extends StatelessWidget {
                   style: TextStyle(
                     color: cycle.isActive
                         ? AppColors.primary
-                        : AppColors.textPrimary,
+                        : context.appExt.textPrimary,
                     fontWeight: FontWeight.w800,
                     fontSize: 14,
                   ),
@@ -1093,8 +1190,8 @@ class _CycleListTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${_formatDate(cycle.startDate)} → ${_formatDate(cycle.endDate)}',
-                  style: const TextStyle(
-                    color: AppColors.textHint,
+                  style: TextStyle(
+                    color: context.appExt.textHint,
                     fontSize: 12,
                   ),
                 ),
@@ -1143,10 +1240,10 @@ class _CategoryReferenceRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appExt.card,
         borderRadius: BorderRadius.circular(12),
         border: Border(left: BorderSide(color: accent, width: 4)),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1173,8 +1270,8 @@ class _CategoryReferenceRow extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
+                  style: TextStyle(
+                    color: context.appExt.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1182,8 +1279,8 @@ class _CategoryReferenceRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${cap == null ? 'Uncapped' : 'Cap: ${cap!.toStringAsFixed(0)} pts'} · $rate',
-                  style: const TextStyle(
-                    color: AppColors.textHint,
+                  style: TextStyle(
+                    color: context.appExt.textHint,
                     fontSize: 11,
                   ),
                 ),

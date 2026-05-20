@@ -4,12 +4,15 @@ import '../../constants/cpd_categories.dart';
 import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/app_theme_extension.dart';
+import '../../widgets/category_info_sheet.dart';
 
 class AddActivityScreen extends StatefulWidget {
   const AddActivityScreen({
     super.key,
     this.prefilledDescription,
     this.prefilledProvider,
+    this.initialCategoryId,
   });
 
   /// Optional initial value for the activity title (e.g. from a QR scan).
@@ -17,6 +20,9 @@ class AddActivityScreen extends StatefulWidget {
 
   /// Optional initial value for the provider/event/organisation.
   final String? prefilledProvider;
+
+  /// Pre-select a category when opening from a category info sheet.
+  final int? initialCategoryId;
 
   @override
   State<AddActivityScreen> createState() => _AddActivityScreenState();
@@ -81,7 +87,16 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         widget.prefilledProvider!.trim().isNotEmpty) {
       _fields['provider']!.text = widget.prefilledProvider!.trim();
     }
-    _refreshPointsByCategory();
+    if (widget.initialCategoryId != null) {
+      _selectedCategoryId = widget.initialCategoryId;
+    }
+    _refreshPointsByCategory().then((_) {
+      if (!mounted) return;
+      if (_selectedCategoryId != null) {
+        _recomputePoints();
+        _recomputeWarnings();
+      }
+    });
   }
 
   Future<void> _refreshPointsByCategory() async {
@@ -469,8 +484,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                                 '${domain['code']} — ${domain['name']}',
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
-                                style: const TextStyle(
-                                  color: AppColors.textPrimary,
+                                style: TextStyle(
+                                  color: context.appExt.textPrimary,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -489,13 +504,13 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                                       height: 24,
                                       alignment: Alignment.center,
                                       decoration: BoxDecoration(
-                                        color: AppColors.primaryLight,
+                                        color: context.appExt.primaryTint,
                                         borderRadius:
                                             BorderRadius.circular(20),
                                       ),
                                       child: Text(
                                         domain['code']!,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           color: AppColors.primary,
                                           fontWeight: FontWeight.w800,
                                           fontSize: 12,
@@ -535,11 +550,11 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                         value: _crossProgram,
                         onChanged: (value) =>
                             setState(() => _crossProgram = value ?? false),
-                        title: const Text(
+                        title: Text(
                           'This activity was also claimed in another CPD program',
                           style: TextStyle(
                             fontSize: 13,
-                            color: AppColors.textSecondary,
+                            color: context.appExt.textSecondary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -552,7 +567,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                   _Banner(
                     icon: Icons.warning_amber_rounded,
                     iconColor: AppColors.warning,
-                    bg: AppColors.warningSurface,
+                    bg: context.appExt.warningSurface,
                     accent: AppColors.warning,
                     text: _warningText!,
                   ),
@@ -562,7 +577,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                   _Banner(
                     icon: Icons.celebration_rounded,
                     iconColor: AppColors.success,
-                    bg: AppColors.successSurface,
+                    bg: context.appExt.successSurface,
                     accent: AppColors.success,
                     text: _successText!,
                   ),
@@ -576,7 +591,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      textStyle: const TextStyle(
+                      textStyle: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -896,7 +911,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
       const SizedBox(height: 8),
       Container(
         decoration: BoxDecoration(
-          color: AppColors.primaryLight,
+          color: context.appExt.primaryTint,
           borderRadius: BorderRadius.circular(12),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -907,10 +922,10 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
           onChanged: (value) => setState(() => _eligibility = value ?? false),
           title: Text(
             _eligibilityText(id),
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 13,
-              color: AppColors.textPrimary,
+              color: context.appExt.textPrimary,
             ),
           ),
         ),
@@ -919,7 +934,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         const SizedBox(height: 8),
         Text(
           _helperText(id)!,
-          style: const TextStyle(color: AppColors.textHint, fontSize: 12),
+          style: TextStyle(color: context.appExt.textHint, fontSize: 12),
         ),
       ],
     ]);
@@ -984,7 +999,9 @@ class _Stepper extends StatelessWidget {
                 Container(
                   width: 20,
                   height: 2,
-                  color: i < currentStep ? AppColors.success : AppColors.border,
+                  color: i < currentStep
+                      ? AppColors.success
+                      : context.appExt.border,
                 ),
             ],
           ],
@@ -1023,7 +1040,7 @@ class _StepNode extends StatelessWidget {
         fg = Colors.white;
         content = Text(
           '$number',
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w800,
             fontSize: 13,
@@ -1031,12 +1048,12 @@ class _StepNode extends StatelessWidget {
         );
         break;
       case _StepState.upcoming:
-        bg = AppColors.border;
-        fg = AppColors.textHint;
+        bg = context.appExt.border;
+        fg = context.appExt.textHint;
         content = Text(
           '$number',
-          style: const TextStyle(
-            color: AppColors.textHint,
+          style: TextStyle(
+            color: context.appExt.textHint,
             fontWeight: FontWeight.w700,
             fontSize: 13,
           ),
@@ -1058,7 +1075,11 @@ class _StepNode extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: state == _StepState.upcoming ? AppColors.textHint : fg == Colors.white ? AppColors.textPrimary : fg,
+            color: switch (state) {
+              _StepState.upcoming => context.appExt.textHint,
+              _StepState.active => AppColors.primary,
+              _StepState.completed => AppColors.success,
+            },
             fontSize: 11,
             fontWeight: state == _StepState.active
                 ? FontWeight.w800
@@ -1093,7 +1114,14 @@ class _StepLabel extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.border, shape: BoxShape.circle)),
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+            color: context.appExt.border,
+            shape: BoxShape.circle,
+          ),
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -1140,9 +1168,9 @@ class _DateCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.appExt.card,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: AppShadows.card,
+            boxShadow: context.appExt.cardShadow,
           ),
           child: Row(
             children: [
@@ -1150,7 +1178,7 @@ class _DateCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
+                  color: context.appExt.primaryTint,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -1166,17 +1194,17 @@ class _DateCard extends StatelessWidget {
                   children: [
                     Text(
                       dateText,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary,
+                        color: context.appExt.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: AppColors.textHint,
+                      style: TextStyle(
+                        color: context.appExt.textHint,
                         fontSize: 12,
                       ),
                     ),
@@ -1236,9 +1264,9 @@ class _CategorySelectionCard extends StatelessWidget {
             duration: const Duration(milliseconds: 160),
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
             decoration: BoxDecoration(
-              color: selected ? AppColors.primaryLight : Colors.white,
+              color: selected ? context.appExt.primaryTint : context.appExt.card,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: AppShadows.card,
+              boxShadow: context.appExt.cardShadow,
               border: Border(
                 left: BorderSide(
                   color: selected ? AppColors.primary : accent,
@@ -1246,54 +1274,66 @@ class _CategorySelectionCard extends StatelessWidget {
                 ),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: accent.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
+                Padding(
+                  padding: const EdgeInsets.only(right: 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 30,
+                            child: selected
+                                ? const Padding(
+                                    padding: EdgeInsets.only(top: 2),
+                                    child: Icon(
+                                      Icons.check_circle,
+                                      color: AppColors.primary,
+                                      size: 22,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: accent.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'Cat $id',
+                              style: TextStyle(
+                                color: accent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: context.appExt.textPrimary,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        'Cat $id',
-                        style: TextStyle(
-                          color: accent,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (selected)
-                      const Icon(
-                        Icons.check_circle,
-                        color: AppColors.primary,
-                        size: 22,
-                      ),
-                  ],
-                ),
                 const SizedBox(height: 4),
                 Text(
                   '${cap == null ? 'Uncapped' : 'Cap: ${cap!.toStringAsFixed(0)} pts'} · $rateDescription',
-                  style: const TextStyle(
-                    color: AppColors.textHint,
+                  style: TextStyle(
+                    color: context.appExt.textHint,
                     fontSize: 12,
                   ),
                 ),
@@ -1304,7 +1344,7 @@ class _CategorySelectionCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: value,
                       minHeight: 5,
-                      backgroundColor: AppColors.border,
+                      backgroundColor: context.appExt.border,
                       color: barColor,
                     ),
                   ),
@@ -1313,8 +1353,8 @@ class _CategorySelectionCard extends StatelessWidget {
                     children: [
                       Text(
                         '${currentPoints.toStringAsFixed(1)} / ${cap!.toStringAsFixed(0)} pts logged',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
+                        style: TextStyle(
+                          color: context.appExt.textSecondary,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1334,12 +1374,34 @@ class _CategorySelectionCard extends StatelessWidget {
                 ] else
                   Text(
                     '${currentPoints.toStringAsFixed(1)} pts logged so far',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
+                    style: TextStyle(
+                      color: context.appExt.textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: IconButton(
+                    icon: Icon(Icons.info_outline,
+                        size: 18, color: context.appExt.textHint),
+                    tooltip: 'What counts for this category?',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    onPressed: () => CategoryInfoSheet.show(
+                      context,
+                      id,
+                      showLogActivityButton: false,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1359,9 +1421,9 @@ class _SectionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appExt.card,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: AppShadows.card,
+        boxShadow: context.appExt.cardShadow,
       ),
       child: child,
     );
@@ -1392,10 +1454,10 @@ class _RadioCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primaryLight : Colors.white,
+            color: selected ? context.appExt.primaryTint : context.appExt.card,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border,
+              color: selected ? AppColors.primary : context.appExt.border,
             ),
           ),
           child: Row(
@@ -1412,7 +1474,7 @@ class _RadioCard extends StatelessWidget {
                 child: Text(
                   title,
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: context.appExt.textPrimary,
                     fontWeight:
                         selected ? FontWeight.w700 : FontWeight.w500,
                     fontSize: 13,
@@ -1459,8 +1521,8 @@ class _Banner extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: context.appExt.textPrimary,
                 fontWeight: FontWeight.w500,
                 fontSize: 13,
                 height: 1.4,

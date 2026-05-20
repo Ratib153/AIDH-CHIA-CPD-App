@@ -4,18 +4,27 @@ import 'features/activities/activities_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/export/export_screen.dart';
 import 'features/profile/profile_screen.dart';
+import 'navigation/app_navigator.dart';
 import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
 
 class ChiaCpdApp extends StatelessWidget {
   const ChiaCpdApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CPD Tracker',
-      theme: AppTheme.lightTheme,
-      debugShowCheckedModeBanner: false,
-      home: const AppScaffold(),
+    return ListenableBuilder(
+      listenable: ThemeController.instance,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'CPD Tracker',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: ThemeController.instance.mode,
+          debugShowCheckedModeBanner: false,
+          home: const AppScaffold(),
+        );
+      },
     );
   }
 }
@@ -39,37 +48,19 @@ class _AppScaffoldState extends State<AppScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: AppColors.border, width: 1),
-          ),
-        ),
-        child: NavigationBarTheme(
-          data: NavigationBarThemeData(
-            backgroundColor: Colors.white,
-            indicatorColor: AppColors.primaryLight,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            iconTheme: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) {
-                return const IconThemeData(color: AppColors.primary, size: 24);
-              }
-              return const IconThemeData(color: AppColors.textHint, size: 24);
-            }),
-            labelTextStyle: WidgetStateProperty.resolveWith((states) {
-              final base = const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              );
-              if (states.contains(WidgetState.selected)) {
-                return base.copyWith(color: AppColors.primary);
-              }
-              return base.copyWith(color: AppColors.textHint);
-            }),
+    final surface = Theme.of(context).colorScheme.surface;
+    final outline = Theme.of(context).colorScheme.outline;
+
+    return AppNavigator(
+      selectTab: (index) => setState(() => _currentIndex = index),
+      child: Scaffold(
+        body: _screens[_currentIndex],
+        bottomNavigationBar: DecoratedBox(
+          decoration: BoxDecoration(
+            color: surface,
+            border: Border(
+              top: BorderSide(color: outline, width: 1),
+            ),
           ),
           child: NavigationBar(
             selectedIndex: _currentIndex,

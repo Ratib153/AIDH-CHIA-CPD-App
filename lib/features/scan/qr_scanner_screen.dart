@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../theme/app_theme.dart';
+import '../../theme/app_theme_extension.dart';
 import '../activities/add_activity_screen.dart';
 
 /// Camera-driven QR/barcode scanner.
@@ -80,7 +81,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -97,7 +98,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: AppColors.border,
+                      color: context.appExt.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -127,7 +128,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
+                    color: context.appExt.primaryTint,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -145,8 +146,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       const SizedBox(height: 6),
                       SelectableText(
                         scanned.rawText,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
+                        style: TextStyle(
+                          color: context.appExt.textPrimary,
                           fontSize: 13,
                           height: 1.4,
                         ),
@@ -321,7 +322,7 @@ class _ErrorView extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white70, fontSize: 13),
+            style: TextStyle(color: Colors.white70, fontSize: 13),
           ),
           const SizedBox(height: 18),
           OutlinedButton.icon(
