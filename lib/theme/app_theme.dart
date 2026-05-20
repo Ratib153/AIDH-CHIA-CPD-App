@@ -55,9 +55,6 @@ class AppShadows {
           offset: const Offset(0, 6),
         ),
       ];
-
-  @Deprecated('Use context.appExt.cardShadow or AppShadows.lightCard')
-  static List<BoxShadow> get card => lightCard;
 }
 
 class AppTheme {

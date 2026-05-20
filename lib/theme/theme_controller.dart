@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../constants/settings_keys.dart';
 import '../database/database_service.dart';
 
-const _kThemeModeKey = 'settings.themeMode';
-
-/// Global theme mode state, persisted in SQLite app_settings.
+/// Light/dark mode persisted in SQLite [app_settings].
 class ThemeController extends ChangeNotifier {
   ThemeController._();
 
@@ -18,7 +17,7 @@ class ThemeController extends ChangeNotifier {
 
   Future<void> load() async {
     final stored =
-        await DatabaseService.instance.getSetting(_kThemeModeKey);
+        await DatabaseService.instance.getSetting(kThemeMode);
     if (stored == 'dark') {
       _mode = ThemeMode.dark;
     } else {
@@ -30,7 +29,7 @@ class ThemeController extends ChangeNotifier {
   Future<void> setDark(bool enabled) async {
     _mode = enabled ? ThemeMode.dark : ThemeMode.light;
     await DatabaseService.instance.setSetting(
-      _kThemeModeKey,
+      kThemeMode,
       enabled ? 'dark' : 'light',
     );
     notifyListeners();

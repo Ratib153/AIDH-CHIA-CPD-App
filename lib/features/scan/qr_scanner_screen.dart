@@ -7,11 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
 import '../activities/add_activity_screen.dart';
 
-/// Camera-driven QR/barcode scanner.
-///
-/// On a successful scan the user can choose to "Use as activity" — that pushes
-/// `AddActivityScreen` with the scanned content pre-filled into the activity
-/// title (and provider, when the QR payload is JSON with those fields).
+/// Scans QR/barcode payloads and can open [AddActivityScreen] with prefilled fields.
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
 

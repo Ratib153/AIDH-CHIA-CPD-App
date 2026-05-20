@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="aidh_chia_cpd_app"
+        android:label="CHIA CPD Tracker"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

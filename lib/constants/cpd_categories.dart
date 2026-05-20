@@ -1,3 +1,4 @@
+/// CHIA CPD category definitions (caps and point rates). Source of truth for UI validation.
 const List<Map<String, dynamic>> kCpdCategories = [
   {
     'id': 1,

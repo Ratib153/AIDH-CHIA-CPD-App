@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "662044863947",
+    "project_id": "chia-cpd-tracker",
+    "storage_bucket": "chia-cpd-tracker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:662044863947:android:5b4af4c19aeee953d5da4e",
+        "android_client_info": {
+          "package_name": "com.example.aidh_chia_cpd_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDaZXhJTENQIrX_EBgQkwidj-hRrKLgjcY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -42,3 +42,8 @@ android {
 flutter {
     source = "../.."
 }
+
+// Applied after `flutterfire configure` writes android/app/google-services.json
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}

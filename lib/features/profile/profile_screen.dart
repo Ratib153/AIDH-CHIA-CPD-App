@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../auth/auth_service.dart';
 import '../../constants/cpd_categories.dart';
+import '../../constants/settings_keys.dart';
 import '../../database/database_service.dart';
+import '../../firebase_options.dart';
 import '../../models/recertification_cycle.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
 import '../../theme/theme_controller.dart';
-
-const _kSettingsDisplayName = 'profile.displayName';
-const _kSettingsCredentialNumber = 'profile.credentialNumber';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -35,11 +35,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  String _effectiveDisplayName(String? localName) {
+    if (DefaultFirebaseOptions.isConfigured) {
+      final username = AuthService.instance.username;
+      if (username != null && username.isNotEmpty) {
+        return username;
+      }
+    }
+    return localName ?? 'CHIA Professional';
+  }
+
   Future<_ProfileData> _load() async {
     final name =
-        await _databaseService.getSetting(_kSettingsDisplayName);
+        await _databaseService.getSetting(kProfileDisplayName);
+    final displayName = _effectiveDisplayName(name);
     final credential =
-        await _databaseService.getSetting(_kSettingsCredentialNumber);
+        await _databaseService.getSetting(kProfileCredentialNumber);
     final cycle = await _databaseService.getActiveCycle();
 
     double totalPoints = 0;
@@ -56,12 +67,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     if (!_isEditing) {
-      _nameController.text = name ?? 'CHIA Professional';
+      _nameController.text = displayName;
       _credentialController.text = credential ?? '';
     }
 
     return _ProfileData(
-      displayName: name ?? 'CHIA Professional',
+      displayName: displayName,
+      usesFirebaseUsername: AuthService.instance.username != null,
       credentialNumber: credential ?? '',
       cycle: cycle,
       totalPoints: totalPoints,
@@ -70,17 +82,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  bool _isValidUsername(String value) {
+    return value.length >= 3 &&
+        value.length <= 30 &&
+        RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value);
+  }
+
   Future<void> _saveProfile() async {
     setState(() => _isSaving = true);
     try {
+      final trimmedName = _nameController.text.trim();
+      final hasFirebaseAccount = DefaultFirebaseOptions.isConfigured &&
+          AuthService.instance.isSignedIn;
+
+      String displayName;
+      if (hasFirebaseAccount) {
+        if (!_isValidUsername(trimmedName)) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Username must be 3–30 characters (letters, numbers, underscores).',
+              ),
+            ),
+          );
+          return;
+        }
+        displayName = trimmedName;
+        await AuthService.instance.updateUsername(displayName);
+      } else {
+        displayName =
+            trimmedName.isEmpty ? 'CHIA Professional' : trimmedName;
+      }
+
       await _databaseService.setSetting(
-        _kSettingsDisplayName,
-        _nameController.text.trim().isEmpty
-            ? 'CHIA Professional'
-            : _nameController.text.trim(),
+        kProfileDisplayName,
+        displayName,
       );
       await _databaseService.setSetting(
-        _kSettingsCredentialNumber,
+        kProfileCredentialNumber,
         _credentialController.text.trim().isEmpty
             ? null
             : _credentialController.text.trim(),
@@ -415,7 +455,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: FutureBuilder<_ProfileData>(
+      child: ListenableBuilder(
+        listenable: AuthService.instance,
+        builder: (context, _) {
+          return FutureBuilder<_ProfileData>(
         future: _load(),
         builder: (context, snapshot) {
           final data = snapshot.data;
@@ -427,6 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               _ProfileHeader(
                 displayName: data.displayName,
+                usesFirebaseUsername: data.usesFirebaseUsername,
                 credentialNumber: data.credentialNumber,
                 isEditing: _isEditing,
                 isSaving: _isSaving,
@@ -471,6 +515,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 10),
                     const _AppearanceSettings(),
+                    if (DefaultFirebaseOptions.isConfigured) ...[
+                      const SizedBox(height: 22),
+                      Text(
+                        'Account',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 10),
+                      const _AccountSettings(),
+                    ],
                     const SizedBox(height: 22),
                     Text(
                       'About & Help',
@@ -490,6 +543,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           );
         },
+          );
+        },
       ),
     );
   }
@@ -498,6 +553,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.displayName,
+    required this.usesFirebaseUsername,
     required this.credentialNumber,
     required this.isEditing,
     required this.isSaving,
@@ -507,6 +563,7 @@ class _ProfileHeader extends StatelessWidget {
   });
 
   final String displayName;
+  final bool usesFirebaseUsername;
   final String credentialNumber;
   final bool isEditing;
   final bool isSaving;
@@ -526,7 +583,7 @@ class _ProfileHeader extends StatelessWidget {
           const SizedBox(height: 14),
           if (!isEditing) ...[
             Text(
-              displayName,
+              usesFirebaseUsername ? '@$displayName' : displayName,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
@@ -562,8 +619,9 @@ class _ProfileHeader extends StatelessWidget {
             TextField(
               controller: nameController,
               textAlign: TextAlign.center,
-              decoration: const InputDecoration(
-                labelText: 'Display name',
+              decoration: InputDecoration(
+                labelText:
+                    usesFirebaseUsername ? 'Username' : 'Display name',
               ),
             ),
             const SizedBox(height: 10),
@@ -934,6 +992,87 @@ class _SummaryTile extends StatelessWidget {
   }
 }
 
+class _AccountSettings extends StatelessWidget {
+  const _AccountSettings();
+
+  Future<void> _signOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Sign out?'),
+        content: const Text('You will need to sign in again to use the app.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    await AuthService.instance.signOut();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = context.appExt;
+    final email = AuthService.instance.currentUser?.email;
+    final username = AuthService.instance.username;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: ext.card,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: ext.cardShadow,
+      ),
+      child: Column(
+        children: [
+          if (username != null)
+            ListTile(
+              leading: const Icon(Icons.person_outline, color: AppColors.primary),
+              title: const Text('Username'),
+              subtitle: Text(
+                '@$username',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: ext.textPrimary,
+                ),
+              ),
+            ),
+          if (email != null)
+            ListTile(
+              leading: const Icon(Icons.email_outlined, color: AppColors.primary),
+              title: const Text('Email'),
+              subtitle: Text(
+                email,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: ext.textPrimary,
+                ),
+              ),
+            ),
+          ListTile(
+            leading: const Icon(Icons.logout, color: AppColors.error),
+            title: const Text(
+              'Sign out',
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            onTap: () => _signOut(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AppearanceSettings extends StatelessWidget {
   const _AppearanceSettings();
 
@@ -1296,6 +1435,7 @@ class _CategoryReferenceRow extends StatelessWidget {
 class _ProfileData {
   const _ProfileData({
     required this.displayName,
+    required this.usesFirebaseUsername,
     required this.credentialNumber,
     required this.cycle,
     required this.totalPoints,
@@ -1304,6 +1444,7 @@ class _ProfileData {
   });
 
   final String displayName;
+  final bool usesFirebaseUsername;
   final String credentialNumber;
   final RecertificationCycle? cycle;
   final double totalPoints;

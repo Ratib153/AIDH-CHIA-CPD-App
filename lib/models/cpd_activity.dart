@@ -33,11 +33,10 @@ class CpdActivity {
   final String createdAt;
   final String updatedAt;
 
-  // Backward-compatible aliases for current export UI.
+  /// Aliases used by [export_service] for PDF/Excel output.
   String get title => activityDescription;
   String get category => categoryName;
   DateTime get date => DateTime.parse(dateLogged);
-  int get points => pointsClaimed.round();
   String? get notes => evidenceNote;
 
   Map<String, dynamic> toMap() {

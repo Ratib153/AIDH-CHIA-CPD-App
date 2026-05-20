@@ -5,6 +5,7 @@ import '../constants/cpd_categories.dart';
 import '../models/cpd_activity.dart';
 import '../models/recertification_cycle.dart';
 
+/// Local SQLite access for CPD cycles, activities, and app settings.
 class DatabaseService {
   static final DatabaseService instance = DatabaseService._init();
   static Database? _database;
@@ -139,23 +140,6 @@ class DatabaseService {
     }
   }
 
-  Future<int> setActiveCycle(int id) async {
-    try {
-      final db = await database;
-      return db.transaction((txn) async {
-        await txn.update('recertification_cycles', {'is_active': 0});
-        return txn.update(
-          'recertification_cycles',
-          {'is_active': 1},
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-      });
-    } catch (e) {
-      throw Exception('Failed to set active cycle: $e');
-    }
-  }
-
   Future<int> archiveAndCreateNewCycle(RecertificationCycle newCycle) async {
     try {
       final db = await database;
@@ -249,15 +233,6 @@ class DatabaseService {
     }
   }
 
-  Future<int> hardDeleteActivity(int id) async {
-    try {
-      final db = await database;
-      return db.delete('cpd_activities', where: 'id = ?', whereArgs: [id]);
-    } catch (e) {
-      throw Exception('Failed to hard delete activity: $e');
-    }
-  }
-
   Future<List<CpdActivity>> getActivitiesByCycle(int cycleId) async {
     try {
       final db = await database;
@@ -270,35 +245,6 @@ class DatabaseService {
       return maps.map(CpdActivity.fromMap).toList();
     } catch (e) {
       throw Exception('Failed to fetch activities by cycle: $e');
-    }
-  }
-
-  Future<List<CpdActivity>> getAllActivities() async {
-    try {
-      final db = await database;
-      final maps = await db.query(
-        'cpd_activities',
-        where: 'deleted_at IS NULL',
-        orderBy: 'date_logged DESC, id DESC',
-      );
-      return maps.map(CpdActivity.fromMap).toList();
-    } catch (e) {
-      throw Exception('Failed to fetch all activities: $e');
-    }
-  }
-
-  Future<List<CpdActivity>> getActivitiesByCategory(int cycleId, int categoryId) async {
-    try {
-      final db = await database;
-      final maps = await db.query(
-        'cpd_activities',
-        where: 'cycle_id = ? AND category_id = ? AND deleted_at IS NULL',
-        whereArgs: [cycleId, categoryId],
-        orderBy: 'date_logged DESC, id DESC',
-      );
-      return maps.map(CpdActivity.fromMap).toList();
-    } catch (e) {
-      throw Exception('Failed to fetch activities by category: $e');
     }
   }
 
@@ -459,9 +405,4 @@ class DatabaseService {
     }
   }
 
-  Future<void> close() async {
-    final db = await database;
-    db.close();
-    _database = null;
-  }
 }

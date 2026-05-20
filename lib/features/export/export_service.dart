@@ -7,10 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../models/cpd_activity.dart';
 
-/// Result of an export operation.
-///
-/// `path` is `null` when the user cancelled the system Save As dialog.
-/// `cancelled` distinguishes a deliberate cancel from a real failure.
+/// PDF/Excel export result; [path] is null if the user cancelled Save As.
 class ExportResult {
   const ExportResult({required this.path, this.cancelled = false});
 
