@@ -246,6 +246,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
 
   Future<void> _save() async {
     final active = await _databaseService.getActiveCycle();
+    if (!mounted) return;
     if (!_formKey.currentState!.validate() ||
         active?.id == null ||
         _selectedCategoryId == null) {
@@ -343,7 +344,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     } on StateError catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Duplicate activity detected.')),
+        SnackBar(content: Text(e.message)),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1069,17 +1070,14 @@ class _StepNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color bg;
-    final Color fg;
     final Widget content;
     switch (state) {
       case _StepState.completed:
         bg = AppColors.success;
-        fg = Colors.white;
         content = const Icon(Icons.check, color: Colors.white, size: 16);
         break;
       case _StepState.active:
         bg = AppColors.primary;
-        fg = Colors.white;
         content = Text(
           '$number',
           style: TextStyle(
@@ -1091,7 +1089,6 @@ class _StepNode extends StatelessWidget {
         break;
       case _StepState.upcoming:
         bg = context.appExt.border;
-        fg = context.appExt.textHint;
         content = Text(
           '$number',
           style: TextStyle(

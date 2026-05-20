@@ -20,6 +20,12 @@ class DatabaseService {
   Future<void> initDatabase() async {
     try {
       final db = await database;
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT
+        );
+      ''');
       final countResult = await db.rawQuery('SELECT COUNT(*) AS count FROM recertification_cycles');
       final count = (countResult.first['count'] as int?) ?? 0;
       if (count == 0) {
@@ -76,6 +82,13 @@ class DatabaseService {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (cycle_id) REFERENCES recertification_cycles(id)
+      );
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
       );
     ''');
   }
