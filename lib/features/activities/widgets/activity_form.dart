@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import '../data/activity_repository.dart';
 import '../models/activity.dart';
 
@@ -16,7 +18,6 @@ class ActivityForm extends StatefulWidget {
 
 class _ActivityFormState extends State<ActivityForm> {
   final _formKey = GlobalKey<FormState>();
-  final _repo = ActivityRepository.instance;
 
   late final TextEditingController _titleController;
   late final TextEditingController _pointsController;
@@ -74,9 +75,9 @@ class _ActivityFormState extends State<ActivityForm> {
         points: points,
         notes: notes,
       );
-      _repo.update(updated);
+      context.read<ActivityRepository>().update(updated);
     } else {
-      _repo.add(
+      context.read<ActivityRepository>().add(
         title: title,
         category: _category,
         date: _date,

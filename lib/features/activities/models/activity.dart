@@ -41,4 +41,30 @@ class Activity {
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'category': category,
+      'date': date.toIso8601String(),
+      'points': points,
+      'notes': notes,
+      'updatedAt': updatedAt.toIso8601String(),
+      'deletedAt': deletedAt?.toIso8601String(),
+    };
+  }
+
+  factory Activity.fromJson(Map<String, dynamic> json) {
+    return Activity(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      category: json['category'] as String,
+      date: DateTime.parse(json['date'] as String),
+      points: (json['points'] as num).toDouble(),
+      notes: json['notes'] as String?,
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      deletedAt: json['deletedAt'] != null ? DateTime.parse(json['deletedAt'] as String) : null,
+    );
+  }
 }

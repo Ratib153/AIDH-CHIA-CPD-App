@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import 'data/activity_repository.dart';
 import 'models/activity.dart';
 import 'widgets/activity_form.dart';
@@ -12,13 +14,11 @@ class ActivitiesScreen extends StatefulWidget {
 }
 
 class _ActivitiesScreenState extends State<ActivitiesScreen> {
-  final _repo = ActivityRepository.instance;
 
   Future<void> _openAddForm() async {
-    final result = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const ActivityForm()),
     );
-    if (result == true && mounted) setState(() {});
   }
 
   Future<void> _openEditForm(Activity activity) async {
@@ -26,7 +26,6 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
       MaterialPageRoute(builder: (_) => ActivityForm(existing: activity)),
     );
     if (result == true && mounted) {
-      setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Activity updated')),
       );
@@ -55,8 +54,7 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
     );
 
     if (confirmed != true || !mounted) return;
-    _repo.softDelete(activity.id);
-    setState(() {});
+    context.read<ActivityRepository>().softDelete(activity.id);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Activity deleted')),
     );
@@ -64,7 +62,8 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activities = _repo.getAll();
+    final repo = context.watch<ActivityRepository>();
+    final activities = repo.getAll();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Activities')),

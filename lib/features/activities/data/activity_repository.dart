@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/activity.dart';
 
 const List<String> kActivityCategories = [
@@ -8,51 +11,42 @@ const List<String> kActivityCategories = [
   'Other',
 ];
 
-class ActivityRepository {
-  ActivityRepository._() {
-    final now = DateTime.now();
-    _items.addAll([
-      Activity(
-        id: _newId(),
-        title: 'AHIMA Conference 2024',
-        category: 'Educational Events',
-        date: DateTime(2024, 10, 15),
-        points: 15,
-        notes: 'Sessions on clinical informatics and governance.',
-        updatedAt: now,
-      ),
-      Activity(
-        id: _newId(),
-        title: 'Health Data Analytics Course',
-        category: 'Structured Education',
-        date: DateTime(2024, 9, 28),
-        points: 10,
-        notes: 'Completed online module with assessment.',
-        updatedAt: now,
-      ),
-      Activity(
-        id: _newId(),
-        title: 'Mentoring Junior Analyst',
-        category: 'Mentoring',
-        date: DateTime(2024, 7, 16),
-        points: 6,
-        updatedAt: now,
-      ),
-    ]);
+class ActivityRepository extends ChangeNotifier {
+  static const String _prefsKey = 'activities_data';
+  List<Activity> _items = [];
+  bool _isLoaded = false;
+
+  bool get isLoaded => _isLoaded;
+
+  Future<void> load() async {
+    if (_isLoaded) return;
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_prefsKey);
+    if (jsonString != null) {
+      final List<dynamic> decoded = jsonDecode(jsonString);
+      _items = decoded.map((e) => Activity.fromJson(e)).toList();
+    }
+    _isLoaded = true;
+    notifyListeners();
   }
 
-  static final ActivityRepository instance = ActivityRepository._();
-
-  final List<Activity> _items = [];
-  int _idCounter = 0;
-
-  String _newId() {
-    _idCounter += 1;
-    return '${DateTime.now().microsecondsSinceEpoch}-$_idCounter';
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = jsonEncode(_items.map((e) => e.toJson()).toList());
+    await prefs.setString(_prefsKey, jsonString);
+    notifyListeners();
   }
 
   List<Activity> getAll() {
     return _items.where((a) => a.deletedAt == null).toList();
+  }
+
+  double get totalPoints {
+    return getAll().fold(0.0, (sum, item) => sum + item.points);
+  }
+
+  String _newId() {
+    return '${DateTime.now().microsecondsSinceEpoch}';
   }
 
   Activity add({
@@ -72,6 +66,7 @@ class ActivityRepository {
       updatedAt: DateTime.now(),
     );
     _items.add(activity);
+    _save();
     return activity;
   }
 
@@ -79,6 +74,7 @@ class ActivityRepository {
     final index = _items.indexWhere((a) => a.id == updated.id);
     if (index == -1) return;
     _items[index] = updated.copyWith(updatedAt: DateTime.now());
+    _save();
   }
 
   void softDelete(String id) {
@@ -86,5 +82,6 @@ class ActivityRepository {
     if (index == -1) return;
     final now = DateTime.now();
     _items[index] = _items[index].copyWith(deletedAt: now, updatedAt: now);
+    _save();
   }
 }
