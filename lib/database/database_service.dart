@@ -412,6 +412,40 @@ class DatabaseService {
     }
   }
 
+  Future<String?> getSetting(String key) async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        'app_settings',
+        columns: ['value'],
+        where: 'key = ?',
+        whereArgs: [key],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      return rows.first['value'] as String?;
+    } catch (e) {
+      throw Exception('Failed to read setting "$key": $e');
+    }
+  }
+
+  Future<void> setSetting(String key, String? value) async {
+    try {
+      final db = await database;
+      if (value == null) {
+        await db.delete('app_settings', where: 'key = ?', whereArgs: [key]);
+        return;
+      }
+      await db.insert(
+        'app_settings',
+        {'key': key, 'value': value},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      throw Exception('Failed to write setting "$key": $e');
+    }
+  }
+
   Future<void> close() async {
     final db = await database;
     db.close();

@@ -7,12 +7,28 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../models/cpd_activity.dart';
 
+/// Result of an export operation.
+///
+/// `path` is `null` when the user cancelled the system Save As dialog.
+/// `cancelled` distinguishes a deliberate cancel from a real failure.
+class ExportResult {
+  const ExportResult({required this.path, this.cancelled = false});
+
+  final String? path;
+  final bool cancelled;
+
+  bool get success => path != null && path!.isNotEmpty;
+}
+
 class ExportService {
   const ExportService();
 
-  Future<void> exportToPdf(List<CpdActivity> activities) async {
+  Future<ExportResult> exportToPdf(List<CpdActivity> activities) async {
     final document = pw.Document();
-    final totalPoints = activities.fold<int>(0, (sum, item) => sum + item.points);
+    final totalPoints = activities.fold<double>(
+      0,
+      (sum, item) => sum + item.pointsClaimed,
+    );
 
     document.addPage(
       pw.MultiPage(
@@ -25,7 +41,7 @@ class ExportService {
             ),
             pw.SizedBox(height: 8),
             pw.Text('Total activities: ${activities.length}'),
-            pw.Text('Total points: $totalPoints'),
+            pw.Text('Total points: ${_formatPoints(totalPoints)}'),
             pw.SizedBox(height: 16),
             pw.TableHelper.fromTextArray(
               headers: const ['Title', 'Category', 'Date', 'Points', 'Notes'],
@@ -35,7 +51,7 @@ class ExportService {
                       activity.title,
                       activity.category,
                       _formatDate(activity.date),
-                      activity.points.toString(),
+                      _formatPoints(activity.pointsClaimed),
                       activity.notes ?? '',
                     ],
                   )
@@ -52,7 +68,7 @@ class ExportService {
     );
 
     final bytes = await document.save();
-    await _saveFile(
+    return _saveFile(
       bytes: bytes,
       fileName: 'chia_cpd_export_${DateTime.now().millisecondsSinceEpoch}',
       extension: 'pdf',
@@ -60,7 +76,7 @@ class ExportService {
     );
   }
 
-  Future<void> exportToExcel(List<CpdActivity> activities) async {
+  Future<ExportResult> exportToExcel(List<CpdActivity> activities) async {
     final excel = Excel.createExcel();
     final sheet = excel['CPD Export'];
     sheet.appendRow([
@@ -76,7 +92,7 @@ class ExportService {
         TextCellValue(activity.title),
         TextCellValue(activity.category),
         TextCellValue(_formatDate(activity.date)),
-        IntCellValue(activity.points),
+        DoubleCellValue(activity.pointsClaimed),
         TextCellValue(activity.notes ?? ''),
       ]);
     }
@@ -86,7 +102,7 @@ class ExportService {
       throw StateError('Failed to generate Excel bytes.');
     }
 
-    await _saveFile(
+    return _saveFile(
       bytes: Uint8List.fromList(bytes),
       fileName: 'chia_cpd_export_${DateTime.now().millisecondsSinceEpoch}',
       extension: 'xlsx',
@@ -94,23 +110,48 @@ class ExportService {
     );
   }
 
-  Future<void> _saveFile({
+  Future<ExportResult> _saveFile({
     required Uint8List bytes,
     required String fileName,
     required String extension,
     required MimeType mimeType,
   }) async {
-    await FileSaver.instance.saveFile(
-      name: fileName,
-      bytes: bytes,
-      ext: extension,
-      mimeType: mimeType,
-    );
+    try {
+      final result = await FileSaver.instance.saveAs(
+        name: fileName,
+        bytes: bytes,
+        ext: extension,
+        mimeType: mimeType,
+      );
+
+      if (result == null || result.isEmpty) {
+        return const ExportResult(path: null, cancelled: true);
+      }
+      return ExportResult(path: result);
+    } catch (_) {
+      final fallback = await FileSaver.instance.saveFile(
+        name: fileName,
+        bytes: bytes,
+        ext: extension,
+        mimeType: mimeType,
+      );
+      if (fallback.isEmpty) {
+        return const ExportResult(path: null, cancelled: false);
+      }
+      return ExportResult(path: fallback);
+    }
   }
 
   String _formatDate(DateTime date) {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '${date.year}-$month-$day';
+  }
+
+  String _formatPoints(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toStringAsFixed(1);
   }
 }
