@@ -4,6 +4,7 @@ import '../../models/cpd_activity.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
 import '../../widgets/category_info_sheet.dart';
+import 'add_activity_screen.dart';
 
 class ActivityDetailScreen extends StatelessWidget {
   const ActivityDetailScreen({super.key, required this.activity});
@@ -17,6 +18,21 @@ class ActivityDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Activity Details'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit activity',
+            onPressed: () async {
+              final ok = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      AddActivityScreen(existingActivity: activity),
+                ),
+              );
+              if (ok == true && context.mounted) {
+                Navigator.of(context).pop(true);
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             tooltip: 'Category information',

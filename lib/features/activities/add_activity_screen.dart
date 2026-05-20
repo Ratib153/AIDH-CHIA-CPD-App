@@ -13,7 +13,11 @@ class AddActivityScreen extends StatefulWidget {
     this.prefilledDescription,
     this.prefilledProvider,
     this.initialCategoryId,
+    this.existingActivity,
   });
+
+  /// When set, the screen edits this activity (same [DatabaseService] row).
+  final CpdActivity? existingActivity;
 
   /// Optional initial value for the activity title (e.g. from a QR scan).
   final String? prefilledDescription;
@@ -79,16 +83,20 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     ]) {
       _fields[key] = TextEditingController();
     }
-    if (widget.prefilledDescription != null &&
-        widget.prefilledDescription!.trim().isNotEmpty) {
-      _fields['activityName']!.text = widget.prefilledDescription!.trim();
-    }
-    if (widget.prefilledProvider != null &&
-        widget.prefilledProvider!.trim().isNotEmpty) {
-      _fields['provider']!.text = widget.prefilledProvider!.trim();
-    }
-    if (widget.initialCategoryId != null) {
-      _selectedCategoryId = widget.initialCategoryId;
+    if (widget.existingActivity != null) {
+      _populateFromExisting(widget.existingActivity!);
+    } else {
+      if (widget.prefilledDescription != null &&
+          widget.prefilledDescription!.trim().isNotEmpty) {
+        _fields['activityName']!.text = widget.prefilledDescription!.trim();
+      }
+      if (widget.prefilledProvider != null &&
+          widget.prefilledProvider!.trim().isNotEmpty) {
+        _fields['provider']!.text = widget.prefilledProvider!.trim();
+      }
+      if (widget.initialCategoryId != null) {
+        _selectedCategoryId = widget.initialCategoryId;
+      }
     }
     _refreshPointsByCategory().then((_) {
       if (!mounted) return;
@@ -113,6 +121,22 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  void _populateFromExisting(CpdActivity ex) {
+    _dateLogged = DateTime.parse(ex.dateLogged);
+    _selectedCategoryId = ex.categoryId;
+    _fields['activityName']!.text = ex.activityDescription;
+    _fields['provider']!.text = ex.providerName ?? '';
+    if (ex.durationHours != null) {
+      _fields['durationHours']!.text = ex.durationHours!.toString();
+    }
+    _fields['subcategory']!.text = ex.subcategory ?? '';
+    _fields['evidence']!.text = ex.evidenceNote ?? '';
+    _selectedDomain = ex.competencyDomain;
+    _pointsClaimed = ex.pointsClaimed;
+    _fields['points']!.text = ex.pointsClaimed.toStringAsFixed(2);
+    _eligibility = true;
   }
 
   Future<void> _recomputeWarnings() async {
@@ -262,7 +286,11 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
             ? 'Also claimed in another CPD program.'
             : '$evidence\nAlso claimed in another CPD program.';
       }
+      final existing = widget.existingActivity;
+      final isEdit = existing?.id != null;
+
       final activity = CpdActivity(
+        id: existing?.id,
         cycleId: cycleIdValue,
         dateLogged: _dateLogged.toIso8601String().substring(0, 10),
         categoryId: _selectedCategoryId!,
@@ -278,7 +306,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         pointsClaimed: _pointsClaimed,
         competencyDomain: _selectedDomain,
         evidenceNote: evidence.isEmpty ? null : evidence,
-        createdAt: now,
+        createdAt: isEdit ? existing!.createdAt : now,
         updatedAt: now,
       );
 
@@ -288,18 +316,29 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         categoryId: activity.categoryId,
         activityDescription: activity.activityDescription,
         providerName: activity.providerName,
+        excludeId: existing?.id,
       );
       if (duplicate) {
         throw StateError('A matching activity already exists in this cycle.');
       }
 
-      await _databaseService.addActivity(activity);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                'Activity added — ${_pointsClaimed.toStringAsFixed(1)} pts logged')),
-      );
+      if (isEdit) {
+        await _databaseService.updateActivity(activity);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'Activity updated — ${_pointsClaimed.toStringAsFixed(1)} pts')),
+        );
+      } else {
+        await _databaseService.addActivity(activity);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'Activity added — ${_pointsClaimed.toStringAsFixed(1)} pts logged')),
+        );
+      }
       Navigator.of(context).pop(true);
     } on StateError catch (e) {
       if (!mounted) return;
@@ -377,7 +416,10 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Activity')),
+      appBar: AppBar(
+        title: Text(
+            widget.existingActivity != null ? 'Edit Activity' : 'Add Activity'),
+      ),
       body: FutureBuilder(
         future: _databaseService.getActiveCycle(),
         builder: (context, snapshot) {

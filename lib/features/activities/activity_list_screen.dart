@@ -143,6 +143,9 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                       : _GroupedList(
                           activities: activities,
                           onDelete: _deleteActivity,
+                          onRefresh: () {
+                            if (mounted) setState(() {});
+                          },
                         ),
                 ),
               ],
@@ -278,10 +281,15 @@ class _FilterChips extends StatelessWidget {
 }
 
 class _GroupedList extends StatelessWidget {
-  const _GroupedList({required this.activities, required this.onDelete});
+  const _GroupedList({
+    required this.activities,
+    required this.onDelete,
+    required this.onRefresh,
+  });
 
   final List<CpdActivity> activities;
   final Future<void> Function(CpdActivity) onDelete;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -313,6 +321,7 @@ class _GroupedList extends StatelessWidget {
                 _ActivityCard(
                   activity: activity,
                   onDelete: () => onDelete(activity),
+                  onRefresh: onRefresh,
                 ),
                 const SizedBox(height: 10),
               ],
@@ -392,10 +401,15 @@ class _CategoryGroupHeader extends StatelessWidget {
 }
 
 class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({required this.activity, required this.onDelete});
+  const _ActivityCard({
+    required this.activity,
+    required this.onDelete,
+    required this.onRefresh,
+  });
 
   final CpdActivity activity;
   final Future<void> Function() onDelete;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -433,12 +447,13 @@ class _ActivityCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.of(context).push(
+          onTap: () async {
+            final changed = await Navigator.of(context).push<bool>(
               MaterialPageRoute(
                 builder: (_) => ActivityDetailScreen(activity: activity),
               ),
             );
+            if (changed == true) onRefresh();
           },
           child: Container(
             decoration: BoxDecoration(
