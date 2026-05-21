@@ -4,18 +4,29 @@ import 'package:flutter/material.dart';
 class LoginScreen extends StatefulWidget {
   final Future<void> Function(String, String) onLogin;
 
-  const LoginScreen({super.key, required this.onLogin});
+  const LoginScreen({
+    super.key,
+    required this.onLogin,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _emailController =
+      TextEditingController();
+
+  final TextEditingController _passwordController =
+      TextEditingController();
 
   String? _errorMessage;
   bool _isLoading = false;
+
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    return emailRegex.hasMatch(email);
+  }
 
   Future<void> _handleLogin() async {
     final email = _emailController.text.trim();
@@ -25,24 +36,28 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
+    // Empty validation
     if (email.isEmpty || password.isEmpty) {
       setState(() {
-        _errorMessage = "Please enter both email and password";
+        _errorMessage =
+            "Please enter both email and password";
       });
       return;
     }
 
-    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-    if (!emailRegex.hasMatch(email)) {
+    // Email validation
+    if (!_isValidEmail(email)) {
       setState(() {
         _errorMessage = "Enter a valid email address";
       });
       return;
     }
 
+    // Password validation
     if (password.length < 6) {
       setState(() {
-        _errorMessage = "Password must be at least 6 characters";
+        _errorMessage =
+            "Password must be at least 6 characters";
       });
       return;
     }
@@ -52,25 +67,79 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await FirebaseAuth.instance
+          .signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // AuthGate will automatically redirect
       await widget.onLogin(email, password);
 
     } on FirebaseAuthException catch (e) {
       setState(() {
-        _errorMessage = e.message ?? "Login failed. Please try again.";
+        _errorMessage =
+            e.message ??
+            "Login failed. Please try again.";
       });
     } catch (_) {
       setState(() {
-        _errorMessage = "Something went wrong. Please try again.";
+        _errorMessage =
+            "Something went wrong. Please try again.";
       });
     } finally {
       setState(() {
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _handlePasswordReset() async {
+    final email = _emailController.text.trim();
+
+    setState(() {
+      _errorMessage = null;
+    });
+
+    // Empty email
+    if (email.isEmpty) {
+      setState(() {
+        _errorMessage =
+            "Enter your email to reset password";
+      });
+      return;
+    }
+
+    // Email validation
+    if (!_isValidEmail(email)) {
+      setState(() {
+        _errorMessage = "Enter a valid email address";
+      });
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance
+          .sendPasswordResetEmail(email: email);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Password reset email sent.',
+          ),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _errorMessage =
+            e.message ??
+            "Failed to send reset email.";
+      });
+    } catch (_) {
+      setState(() {
+        _errorMessage =
+            "Something went wrong.";
       });
     }
   }
@@ -85,38 +154,62 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
+      appBar: AppBar(
+        title: const Text('Login'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
             TextField(
               controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration:
+                  const InputDecoration(
+                labelText: 'Email',
+              ),
             ),
+
             const SizedBox(height: 10),
+
             TextField(
               controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
+              decoration:
+                  const InputDecoration(
+                labelText: 'Password',
+              ),
               obscureText: true,
             ),
+
             const SizedBox(height: 20),
 
             if (_errorMessage != null)
               Text(
                 _errorMessage!,
-                style: const TextStyle(color: Colors.red),
+                style: const TextStyle(
+                  color: Colors.red,
+                ),
                 textAlign: TextAlign.center,
               ),
 
             const SizedBox(height: 10),
 
             ElevatedButton(
-              onPressed: _isLoading ? null : _handleLogin,
+              onPressed:
+                  _isLoading ? null : _handleLogin,
               child: _isLoading
                   ? const CircularProgressIndicator()
                   : const Text('Login'),
+            ),
+
+            // FORGOT PASSWORD BUTTON
+            TextButton(
+              onPressed: _isLoading
+                  ? null
+                  : _handlePasswordReset,
+              child:
+                  const Text('Forgot password?'),
             ),
 
             const SizedBox(height: 20),
@@ -124,7 +217,10 @@ class _LoginScreenState extends State<LoginScreen> {
             const Text(
               "Firebase Authentication is used to securely manage login.\nPasswords are not stored locally.",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
             ),
           ],
         ),
