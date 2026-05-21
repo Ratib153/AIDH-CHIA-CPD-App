@@ -1,9 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
-import '../activities/data/activity_repository.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -11,20 +8,6 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final repo = context.watch<ActivityRepository>();
-    
-    if (!repo.isLoaded) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final totalPoints = repo.totalPoints;
-    final percentage = (totalPoints / 60.0).clamp(0.0, 1.0);
-    final pointsRemaining = math.max(0.0, 60.0 - totalPoints);
-    final onTrack = totalPoints >= 20.0 ? 'Yes' : 'Needs attention';
-    
-    final recentActivities = repo.getAll();
-    recentActivities.sort((a, b) => b.date.compareTo(a.date));
-    final displayActivities = recentActivities.take(3).toList();
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -48,20 +31,10 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     Row(
-                      children: [
-                        _ProgressRing(
-                          percentage: percentage, 
-                          centerTop: '${(percentage * 100).toInt()}%', 
-                          centerBottom: '${totalPoints.toInt()}/60'
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _ProgressStats(
-                            earned: totalPoints.toStringAsFixed(1),
-                            remaining: pointsRemaining.toStringAsFixed(1),
-                            onTrack: onTrack,
-                          ),
-                        ),
+                      children: const [
+                        _ProgressRing(percentage: 0.86, centerTop: '86%', centerBottom: '70/60'),
+                        SizedBox(width: 16),
+                        Expanded(child: _ProgressStats()),
                       ],
                     ),
                   ],
@@ -75,22 +48,25 @@ class DashboardScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Recent Activities', style: textTheme.titleMedium),
-                if (recentActivities.isNotEmpty)
-                  TextButton(onPressed: () {}, child: const Text('See All')),
+                TextButton(onPressed: () {}, child: const Text('See All')),
               ],
             ),
             const SizedBox(height: 8),
-            if (displayActivities.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('No activities logged yet.'),
-              )
-            else
-              ...displayActivities.map((a) => _ActivityTile(
-                    title: a.title,
-                    subtitle: '${a.category} · ${a.date.year}-${a.date.month.toString().padLeft(2, '0')}-${a.date.day.toString().padLeft(2, '0')}',
-                    points: a.points.toStringAsFixed(1),
-                  )),
+            const _ActivityTile(
+              title: 'AHIMA Conference 2024',
+              subtitle: 'Conference · Oct 15, 2024',
+              points: '15',
+            ),
+            const _ActivityTile(
+              title: 'Health Data Analytics Course',
+              subtitle: 'Education · Sep 28, 2024',
+              points: '10',
+            ),
+            const _ActivityTile(
+              title: 'Clinical Documentation Review',
+              subtitle: 'Research · Sep 10, 2024',
+              points: '5',
+            ),
           ],
         ),
       ),
@@ -185,15 +161,7 @@ class _ProgressPainter extends CustomPainter {
 }
 
 class _ProgressStats extends StatelessWidget {
-  const _ProgressStats({
-    required this.earned,
-    required this.remaining,
-    required this.onTrack,
-  });
-  
-  final String earned;
-  final String remaining;
-  final String onTrack;
+  const _ProgressStats();
 
   @override
   Widget build(BuildContext context) {
@@ -208,18 +176,18 @@ class _ProgressStats extends StatelessWidget {
       color: Color(0xFF62708D),
     );
 
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _StatRow(label: 'Points Earned', value: earned, valueStyle: valueStyle, labelStyle: labelStyle),
-        const SizedBox(height: 8),
-        _StatRow(label: 'Points Remaining', value: remaining, valueStyle: valueStyle, labelStyle: labelStyle),
-        const SizedBox(height: 8),
-        const _StatRow(label: 'Target', value: '60 pts', valueStyle: valueStyle, labelStyle: labelStyle),
-        const SizedBox(height: 8),
-        _StatRow(label: 'On Track', value: onTrack, valueStyle: valueStyle, labelStyle: labelStyle),
-        const SizedBox(height: 8),
-        const _StatRow(label: 'Time Left', value: '2 years', valueStyle: valueStyle, labelStyle: labelStyle),
+        _StatRow(label: 'Points Earned', value: '70', valueStyle: valueStyle, labelStyle: labelStyle),
+        SizedBox(height: 8),
+        _StatRow(label: 'Points Remaining', value: '10', valueStyle: valueStyle, labelStyle: labelStyle),
+        SizedBox(height: 8),
+        _StatRow(label: 'Target', value: '60 pts', valueStyle: valueStyle, labelStyle: labelStyle),
+        SizedBox(height: 8),
+        _StatRow(label: 'On Track', value: 'Yes', valueStyle: valueStyle, labelStyle: labelStyle),
+        SizedBox(height: 8),
+        _StatRow(label: 'Time Left', value: '2 years', valueStyle: valueStyle, labelStyle: labelStyle),
       ],
     );
   }
@@ -343,13 +311,12 @@ class _ActivityTile extends StatelessWidget {
             child: Text(subtitle),
           ),
           trailing: Container(
-            width: 40,
+            width: 34,
             height: 34,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
               color: Color(0xFFE9F0FF),
-              shape: BoxShape.rectangle,
-              borderRadius: BorderRadius.all(Radius.circular(8)),
+              shape: BoxShape.circle,
             ),
             child: Text(
               points,

@@ -19,17 +19,9 @@ This repository now includes a Flutter frontend implementation of the CPD Tracke
 ### 3) Install packages
 - `flutter pub get`
 
-### 4) Run the Application
-- **Android:** `flutter run -d android`
-- **iOS (macOS only):** `flutter run -d ios`
-- **Linux Desktop:** `flutter run -d linux`
-- **Web Browser (Safe fallback):** `flutter run -d web-server --web-port=8080`, then manually open `http://localhost:8080` in Chrome.
-
-### 5) Expected Results (Current Sprint)
-When you run the application, you will experience the following integrated backend features:
-- **Local Persistence:** Adding, editing, or deleting an activity permanently saves it to the device's native Key-Value store (`shared_preferences`). Your data will persist even if the app is completely restarted.
-- **State Management & Live Calculations:** The Dashboard UI is tied to the database via `Provider`. Whenever an activity is modified, the Dashboard instantly recalculates the total points and automatically redraws the progress ring without requiring a refresh.
-- **Form Validation:** The "Add/Edit" forms enforce required fields and valid numeric inputs for points.
+### 4) Run on Android / iOS
+- Android: `flutter run -d android`
+- iOS (macOS only): `flutter run -d ios`
 
 ---
 
