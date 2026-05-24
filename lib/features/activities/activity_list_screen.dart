@@ -4,7 +4,6 @@ import '../../constants/cpd_categories.dart';
 import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
 import '../../utils/format_points.dart';
-import '../../widgets/category_cap_label.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
 import '../../theme/ui_polish.dart';
@@ -143,15 +142,7 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
                 const SizedBox(height: 8),
                 Expanded(
                   child: activities.isEmpty
-                      ? _EmptyState(
-                          onAdd: () async {
-                            await Navigator.of(context).push(
-                              MaterialPageRoute(
-                                  builder: (_) => const AddActivityScreen()),
-                            );
-                            if (mounted) setState(() {});
-                          },
-                        )
+                      ? const _EmptyState()
                       : _GroupedList(
                           activities: activities,
                           onDelete: _deleteActivity,
@@ -253,7 +244,6 @@ class _FilterChips extends StatelessWidget {
   }
 
   String _chipLabel(String base, Object value) {
-    if (!kUsePolishedUI) return base;
     final count = _countFor(value);
     if (value is int && value >= 1 && value <= 10 && count > 0) {
       return '$base ($count)';
@@ -399,55 +389,8 @@ class _CategoryGroupHeader extends StatelessWidget {
   final String name;
   final double total;
 
-  Widget _buildOriginal(BuildContext context) {
-    final accent = AppColors.forCategory(categoryId);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 4,
-          height: 24,
-          decoration: BoxDecoration(
-            color: accent,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: context.appExt.primaryTint,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            'Cat $categoryId',
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            name,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: context.appExt.textPrimary,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const SizedBox(width: 8),
-        CategoryCapLabel(categoryId: categoryId, claimed: total),
-      ],
-    );
-  }
-
-  Widget _buildPolished(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final accent = categoryAccentForId(categoryId);
     final cap = cpdCategoryCap(categoryId);
     final effective = effectiveCategoryPoints(total, categoryId);
@@ -518,12 +461,6 @@ class _CategoryGroupHeader extends StatelessWidget {
       ],
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    if (kUsePolishedUI) return _buildPolished(context);
-    return _buildOriginal(context);
-  }
 }
 
 class _ActivityCard extends StatelessWidget {
@@ -537,14 +474,9 @@ class _ActivityCard extends StatelessWidget {
   final Future<void> Function() onDelete;
   final VoidCallback onRefresh;
 
-  Color _accentColor() {
-    if (kUsePolishedUI) return categoryAccentForId(activity.categoryId);
-    return AppColors.forCategory(activity.categoryId);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final accent = _accentColor();
+    final accent = categoryAccentForId(activity.categoryId);
     return Dismissible(
       key: ValueKey(activity.id),
       direction: DismissDirection.endToStart,
@@ -682,60 +614,10 @@ class _ActivityCard extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onAdd});
+  const _EmptyState();
 
-  final VoidCallback onAdd;
-
-  Widget _buildOriginal(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                color: context.appExt.primaryTint,
-                borderRadius: BorderRadius.circular(28),
-              ),
-              child: const Icon(
-                Icons.assignment_outlined,
-                size: 56,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'No activities yet',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Tap + Add Activity to log your first CPD activity.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: context.appExt.textSecondary,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: 220,
-              child: FilledButton.icon(
-                onPressed: onAdd,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Activity'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPolished(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -774,25 +656,10 @@ class _EmptyState extends StatelessWidget {
                 fontSize: 14,
               ),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: 220,
-              child: FilledButton.icon(
-                onPressed: onAdd,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Activity'),
-              ),
-            ),
           ],
         ),
       ),
     );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (kUsePolishedUI) return _buildPolished(context);
-    return _buildOriginal(context);
   }
 }
 

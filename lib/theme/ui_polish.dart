@@ -1,25 +1,19 @@
 import 'package:flutter/material.dart';
 
-/// Master switch for the UI polish pass.
-/// Set to false to instantly revert all polish changes to the pre-polish UI.
-const bool kUsePolishedUI = true;
-
-/// Category accent colours — used for left border strips on category cards.
-/// Index 0 = Category 1, Index 9 = Category 10.
+/// Category accent colours for left border strips. Index 0 = Category 1.
 const List<Color> kCategoryAccentColors = [
-  Color(0xFF0082C8), // 1 Educational Events — CHIA Blue
-  Color(0xFF7C3AED), // 2 Structured Education Courses — Purple
-  Color(0xFF059669), // 3 Reading — Green
-  Color(0xFFF59E0B), // 4 Presentation — Amber
-  Color(0xFFDC2626), // 5 Publication — Red
-  Color(0xFF0891B2), // 6 Professional Service — Cyan
-  Color(0xFF6D28D9), // 7 Reviewing Publications — Violet
-  Color(0xFF065F46), // 8 Mentoring — Dark Green
-  Color(0xFFD97706), // 9 Discussion Groups — Dark Amber
-  Color(0xFF1D4ED8), // 10 Workplace Activities — Dark Blue
+  Color(0xFF0082C8),
+  Color(0xFF7C3AED),
+  Color(0xFF059669),
+  Color(0xFFF59E0B),
+  Color(0xFFDC2626),
+  Color(0xFF0891B2),
+  Color(0xFF6D28D9),
+  Color(0xFF065F46),
+  Color(0xFFD97706),
+  Color(0xFF1D4ED8),
 ];
 
-/// Polished shadow — replaces flat cards with subtle depth
 const List<BoxShadow> kPolishedShadow = [
   BoxShadow(
     color: Color(0x0F000000),
@@ -35,49 +29,11 @@ const List<BoxShadow> kPolishedShadow = [
   ),
 ];
 
-/// Original shadow — used when kUsePolishedUI = false (revert mode)
-const List<BoxShadow> kOriginalShadow = [
-  BoxShadow(
-    color: Color(0x0A000000),
-    blurRadius: 8,
-    offset: Offset(0, 2),
-  ),
-];
-
 Color categoryAccentForId(int categoryId) {
   return kCategoryAccentColors[(categoryId - 1).clamp(0, 9)];
 }
 
-List<BoxShadow> cardShadowForPolish(List<BoxShadow> fallback) {
-  return kUsePolishedUI ? kPolishedShadow : fallback;
-}
-
-/// ISO date (yyyy-MM-dd) → display form e.g. "23 May 2029"
-String formatDateForDisplay(String iso) {
-  try {
-    final date = DateTime.parse(iso);
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  } catch (_) {
-    return iso;
-  }
-}
-
-/// Section heading with accent bar — polished version
-Widget polishedSectionHeading(String title) {
+Widget sectionHeading(String title, {TextStyle? style}) {
   return Row(
     children: [
       Container(
@@ -91,37 +47,17 @@ Widget polishedSectionHeading(String title) {
       const SizedBox(width: 10),
       Text(
         title,
-        style: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF0D1321),
-        ),
+        style: style ??
+            const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0D1321),
+            ),
       ),
     ],
   );
 }
 
-/// Original section heading — used when reverting
-Widget originalSectionHeading(String title, TextStyle? style) {
-  return Text(
-    title,
-    style: style ??
-        const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF0D1321),
-        ),
-  );
-}
-
-/// Use wherever section headings appear (pass [style] when using Theme text styles).
-Widget sectionHeading(String title, {TextStyle? style}) {
-  return kUsePolishedUI
-      ? polishedSectionHeading(title)
-      : originalSectionHeading(title, style);
-}
-
-/// Custom fade+slide page transition for polished UI.
 class FadeSlidePageTransitionsBuilder extends PageTransitionsBuilder {
   const FadeSlidePageTransitionsBuilder();
 
@@ -148,21 +84,18 @@ class FadeSlidePageTransitionsBuilder extends PageTransitionsBuilder {
   }
 }
 
-PageTransitionsTheme? polishedPageTransitionsTheme() {
-  if (!kUsePolishedUI) return null;
-  return const PageTransitionsTheme(
-    builders: {
-      TargetPlatform.android: FadeSlidePageTransitionsBuilder(),
-      TargetPlatform.iOS: FadeSlidePageTransitionsBuilder(),
-      TargetPlatform.linux: FadeSlidePageTransitionsBuilder(),
-      TargetPlatform.macOS: FadeSlidePageTransitionsBuilder(),
-      TargetPlatform.windows: FadeSlidePageTransitionsBuilder(),
-      TargetPlatform.fuchsia: FadeSlidePageTransitionsBuilder(),
-    },
-  );
-}
+const PageTransitionsTheme kPolishedPageTransitions = PageTransitionsTheme(
+  builders: {
+    TargetPlatform.android: FadeSlidePageTransitionsBuilder(),
+    TargetPlatform.iOS: FadeSlidePageTransitionsBuilder(),
+    TargetPlatform.linux: FadeSlidePageTransitionsBuilder(),
+    TargetPlatform.macOS: FadeSlidePageTransitionsBuilder(),
+    TargetPlatform.windows: FadeSlidePageTransitionsBuilder(),
+    TargetPlatform.fuchsia: FadeSlidePageTransitionsBuilder(),
+  },
+);
 
-/// Staggered fade-in for list items (no extra packages).
+/// Staggered fade-in for list items.
 class PolishedListFadeIn extends StatefulWidget {
   const PolishedListFadeIn({
     super.key,
@@ -195,16 +128,12 @@ class _PolishedListFadeInState extends State<PolishedListFadeIn>
       begin: const Offset(0, 0.06),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-    if (kUsePolishedUI) {
-      Future<void>.delayed(
-        Duration(milliseconds: 40 * widget.index.clamp(0, 12)),
-        () {
-          if (mounted) _controller.forward();
-        },
-      );
-    } else {
-      _controller.value = 1;
-    }
+    Future<void>.delayed(
+      Duration(milliseconds: 40 * widget.index.clamp(0, 12)),
+      () {
+        if (mounted) _controller.forward();
+      },
+    );
   }
 
   @override
@@ -215,7 +144,6 @@ class _PolishedListFadeInState extends State<PolishedListFadeIn>
 
   @override
   Widget build(BuildContext context) {
-    if (!kUsePolishedUI) return widget.child;
     return FadeTransition(
       opacity: _opacity,
       child: SlideTransition(position: _offset, child: widget.child),

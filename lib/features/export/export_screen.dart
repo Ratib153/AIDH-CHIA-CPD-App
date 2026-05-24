@@ -5,7 +5,7 @@ import '../../models/cpd_activity.dart';
 import '../../models/recertification_cycle.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
-import '../../theme/ui_polish.dart';
+import '../../utils/date_utils.dart';
 import '../../utils/format_points.dart';
 import 'export_service.dart';
 
@@ -175,12 +175,10 @@ class _ExportScreenState extends State<ExportScreen> {
         );
       } else if (result.success) {
         final label = type == _ExportType.pdf ? 'PDF' : 'Excel';
-        if (kUsePolishedUI) {
-          setState(() => _exportSuccess = true);
-          Future<void>.delayed(const Duration(seconds: 2), () {
-            if (mounted) setState(() => _exportSuccess = false);
-          });
-        }
+        setState(() => _exportSuccess = true);
+        Future<void>.delayed(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _exportSuccess = false);
+        });
         messenger.showSnackBar(
           SnackBar(
             content: Text(
@@ -377,7 +375,7 @@ class _ExportScreenState extends State<ExportScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : (kUsePolishedUI && _exportSuccess)
+                            : (_exportSuccess)
                                 ? const Icon(
                                     Icons.check_circle,
                                     color: Colors.white,
@@ -389,7 +387,7 @@ class _ExportScreenState extends State<ExportScreen> {
                                         : Icons.table_chart,
                                     size: 20,
                                   ),
-                        label: (kUsePolishedUI && _exportSuccess)
+                        label: _exportSuccess
                             ? const Text('Exported!')
                             : Text(
                                 _selectedFormat == _ExportType.pdf
@@ -418,30 +416,6 @@ class _ExportScreenState extends State<ExportScreen> {
         ),
       ),
     );
-  }
-}
-
-String _formatDate(String isoDate) {
-  try {
-    final dt = DateTime.parse(isoDate);
-    const months = [
-      '',
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${dt.day} ${months[dt.month]} ${dt.year}';
-  } catch (_) {
-    return isoDate;
   }
 }
 
@@ -518,7 +492,7 @@ class _CycleSelectCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_formatDate(cycle.startDate)} → ${_formatDate(cycle.endDate)}',
+                      '${formatDate(cycle.startDate)} → ${formatDate(cycle.endDate)}',
                       style: TextStyle(
                         color: context.appExt.textHint,
                         fontSize: 12,
@@ -792,7 +766,7 @@ class _SummaryCard extends StatelessWidget {
           if (view.cycle != null) ...[
             const SizedBox(height: 10),
             Text(
-              '${_formatDate(view.cycle!.startDate)} → ${_formatDate(view.cycle!.endDate)}',
+              '${formatDate(view.cycle!.startDate)} → ${formatDate(view.cycle!.endDate)}',
               style: TextStyle(
                 color: ext.textHint,
                 fontSize: 12,
@@ -825,7 +799,7 @@ class _FormatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ext = context.appExt;
-    final radius = kUsePolishedUI ? 12.0 : 16.0;
+    const radius = 12.0;
     return Material(
       color: Colors.transparent,
       child: InkWell(

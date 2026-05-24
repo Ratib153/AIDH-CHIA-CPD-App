@@ -63,7 +63,7 @@ class ExportService {
           '',
           '',
           '',
-          '⚠ Cap exceeded: only ${formatPoints(effective)} of ${formatPoints(claimed)} pts count',
+          'Cap exceeded: only ${formatPoints(effective)} of ${formatPoints(claimed)} pts count',
         ]);
       }
     }
@@ -81,7 +81,7 @@ class ExportService {
             pw.SizedBox(height: 8),
             pw.Text('Cycle: ${cycle['name']}'),
             pw.Text(
-              'Period: ${cycle['startDate']} → ${cycle['endDate']}',
+              'Period: ${cycle['startDate']} to ${cycle['endDate']}',
             ),
             pw.Text('Total activities: ${activityRows.length}'),
             pw.Text(
@@ -184,7 +184,7 @@ class ExportService {
           ),
           if (totalEffective >= targetPoints)
             pw.Text(
-              '✓ Recertification requirement met.',
+              'Recertification requirement met.',
               style: pw.TextStyle(
                 color: PdfColors.green800,
                 fontWeight: pw.FontWeight.bold,
@@ -192,7 +192,7 @@ class ExportService {
             )
           else
             pw.Text(
-              '✗ Recertification requirement not yet met '
+              'Recertification requirement not yet met '
               '(${formatPoints(targetPoints - totalEffective)} pts remaining).',
               style: const pw.TextStyle(color: PdfColors.red800),
             ),

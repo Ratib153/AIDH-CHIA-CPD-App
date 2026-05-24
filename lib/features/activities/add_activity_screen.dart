@@ -6,6 +6,7 @@ import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
+import '../../utils/date_utils.dart';
 import '../../utils/format_points.dart';
 import '../../widgets/category_info_sheet.dart';
 
@@ -280,16 +281,17 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
       );
       return;
     }
-    if (!_isDateNotInFuture(_dateLogged)) {
+    if (!_isDateInCycleRange(_dateLogged, active!.startDate, active.endDate)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Activity date cannot be in the future.')),
+        SnackBar(
+          content: Text(
+            'Activity date must be between ${formatDate(active.startDate)} '
+            'and ${formatDate(active.endDate)}, and cannot be in the future.',
+          ),
+        ),
       );
       return;
     }
-    // We intentionally allow backdating: activities that occurred before
-    // the current cycle's start are still recorded (helpful when the user
-    // started journalling after the cycle began).
 
     setState(() => _saving = true);
     try {
@@ -421,11 +423,35 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     }
   }
 
-  bool _isDateNotInFuture(DateTime date) {
-    final today = DateTime.now();
-    final d = DateTime(date.year, date.month, date.day);
-    final t = DateTime(today.year, today.month, today.day);
-    return !d.isAfter(t);
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  ({DateTime first, DateTime last}) _allowedActivityDateRange(
+    String startDate,
+    String endDate,
+  ) {
+    final first = _dateOnly(DateTime.parse(startDate));
+    final cycleEnd = _dateOnly(DateTime.parse(endDate));
+    final today = _dateOnly(DateTime.now());
+    final last = cycleEnd.isBefore(today) ? cycleEnd : today;
+    return (first: first, last: last);
+  }
+
+  bool _isDateInCycleRange(DateTime date, String startDate, String endDate) {
+    final range = _allowedActivityDateRange(startDate, endDate);
+    final d = _dateOnly(date);
+    return !d.isBefore(range.first) && !d.isAfter(range.last);
+  }
+
+  DateTime _clampToAllowedRange(
+    DateTime date,
+    String startDate,
+    String endDate,
+  ) {
+    final range = _allowedActivityDateRange(startDate, endDate);
+    final d = _dateOnly(date);
+    if (d.isBefore(range.first)) return range.first;
+    if (d.isAfter(range.last)) return range.last;
+    return d;
   }
 
   String _categoryName(int id) => (kCpdCategories
@@ -468,23 +494,30 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                   startDate: cycle.startDate,
                   endDate: cycle.endDate,
                   onTap: () async {
-                    final today = DateTime.now();
-                    // Allow backdating up to 3 years (a full CHIA cycle),
-                    // independent of when this cycle started in the DB.
-                    final cycleStart = DateTime.parse(cycle.startDate);
-                    final threeYearsAgo =
-                        today.subtract(const Duration(days: 1095));
-                    final earliest = cycleStart.isBefore(threeYearsAgo)
-                        ? cycleStart
-                        : threeYearsAgo;
+                    final range = _allowedActivityDateRange(
+                      cycle.startDate,
+                      cycle.endDate,
+                    );
+                    if (range.last.isBefore(range.first)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Your certification cycle has not started yet.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
                     final picked = await showDatePicker(
                       context: context,
-                      initialDate: _dateLogged.isAfter(today)
-                          ? today
-                          : _dateLogged,
-                      firstDate: earliest,
-                      lastDate: today,
-                      helpText: 'Select activity date (past dates allowed)',
+                      initialDate: _clampToAllowedRange(
+                        _dateLogged,
+                        cycle.startDate,
+                        cycle.endDate,
+                      ),
+                      firstDate: range.first,
+                      lastDate: range.last,
+                      helpText: 'Select date within your certification cycle',
                     );
                     if (picked != null) {
                       setState(() => _dateLogged = picked);

@@ -11,6 +11,7 @@ import '../activities/activity_list_screen.dart';
 import '../activities/add_activity_screen.dart';
 import '../../navigation/app_navigator.dart';
 import '../scan/qr_scanner_screen.dart';
+import '../../utils/date_utils.dart';
 import '../../utils/format_points.dart';
 import '../../widgets/category_info_sheet.dart';
 
@@ -190,14 +191,11 @@ class _HeroProgressCard extends StatelessWidget {
 
   final _DashboardData data;
 
-  String _displayEndDate() {
-    if (kUsePolishedUI) return formatDateForDisplay(data.endDate);
-    return data.endDate;
-  }
+  String _displayEndDate() => formatDate(data.endDate);
 
-  Widget _buildProgressCircle(double progress, bool goalReached) {
-    final size = kUsePolishedUI ? 120.0 : 110.0;
-    final stroke = kUsePolishedUI ? 10.0 : 9.0;
+  Widget _buildProgressCircle(double progress) {
+    const size = 120.0;
+    const stroke = 10.0;
     final indicator = SizedBox(
       width: size,
       height: size,
@@ -208,8 +206,6 @@ class _HeroProgressCard extends StatelessWidget {
         valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
       ),
     );
-
-    if (!kUsePolishedUI) return indicator;
 
     return Container(
       width: size,
@@ -265,12 +261,12 @@ class _HeroProgressCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
-                width: kUsePolishedUI ? 120 : 110,
-                height: kUsePolishedUI ? 120 : 110,
+                width: 120,
+                height: 120,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    _buildProgressCircle(progress, goalReached),
+                    _buildProgressCircle(progress),
                     if (goalReached)
                       const Icon(Icons.check_rounded,
                               color: Colors.white, size: 48)
@@ -476,52 +472,44 @@ class _QuickAction extends StatelessWidget {
   final VoidCallback onTap;
   final bool isPrimary;
 
-  Widget _buildOriginal(BuildContext context) {
-    final ext = context.appExt;
-    final bg = isPrimary ? AppColors.primary : ext.card;
-    final fg = isPrimary ? Colors.white : AppColors.primary;
-    final borderColor =
-        isPrimary ? AppColors.primary : AppColors.primary.withValues(alpha: 0.4);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          height: 84,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: borderColor, width: 1.5),
-            boxShadow: isPrimary ? null : ext.cardShadow,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: fg, size: 24),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: fg,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+  @override
+  Widget build(BuildContext context) {
+    if (isPrimary) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            height: 84,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.primary, width: 1.5),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 24),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildPolished(BuildContext context) {
-    if (isPrimary) return _buildOriginal(context);
+      );
+    }
 
     return Material(
       color: Colors.transparent,
@@ -558,12 +546,6 @@ class _QuickAction extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (kUsePolishedUI) return _buildPolished(context);
-    return _buildOriginal(context);
   }
 }
 
@@ -615,16 +597,8 @@ class _CategoryRow extends StatelessWidget {
   final double total;
 
   BoxDecoration _cardDecoration(BuildContext context) {
-    final ext = context.appExt;
-    if (!kUsePolishedUI) {
-      return BoxDecoration(
-        color: ext.card,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: ext.cardShadow,
-      );
-    }
     return BoxDecoration(
-      color: ext.card,
+      color: context.appExt.card,
       borderRadius: BorderRadius.circular(12),
       border: Border(
         left: BorderSide(
@@ -652,7 +626,7 @@ class _CategoryRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => CategoryInfoSheet.show(context, categoryId),
-        borderRadius: BorderRadius.circular(kUsePolishedUI ? 12 : 16),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: _cardDecoration(context),
@@ -893,14 +867,9 @@ class _RecentActivityCard extends StatelessWidget {
 
   final CpdActivity activity;
 
-  Color _accentColor() {
-    if (kUsePolishedUI) return categoryAccentForId(activity.categoryId);
-    return AppColors.forCategory(activity.categoryId);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final accent = _accentColor();
+    final accent = categoryAccentForId(activity.categoryId);
     return Container(
       decoration: BoxDecoration(
         color: context.appExt.card,

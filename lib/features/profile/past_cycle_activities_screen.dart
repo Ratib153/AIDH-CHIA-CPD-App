@@ -5,6 +5,7 @@ import '../../models/cpd_activity.dart';
 import '../../models/recertification_cycle.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
+import '../../utils/date_utils.dart';
 import '../../utils/format_points.dart';
 import '../../widgets/category_cap_label.dart';
 import '../activities/activity_detail_screen.dart';
@@ -147,7 +148,7 @@ class _CycleSummaryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${_formatDate(cycle.startDate)} → ${_formatDate(cycle.endDate)}',
+            '${formatDate(cycle.startDate)} → ${formatDate(cycle.endDate)}',
             style: TextStyle(color: context.appExt.textHint, fontSize: 13),
           ),
           const SizedBox(height: 12),
@@ -302,18 +303,5 @@ class _PastActivityTile extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-String _formatDate(String iso) {
-  try {
-    final dt = DateTime.parse(iso);
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
-  } catch (_) {
-    return iso;
   }
 }

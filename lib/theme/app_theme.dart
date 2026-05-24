@@ -354,8 +354,7 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
-      pageTransitionsTheme:
-          polishedPageTransitionsTheme() ?? const PageTransitionsTheme(),
+      pageTransitionsTheme: kPolishedPageTransitions,
     );
   }
 }

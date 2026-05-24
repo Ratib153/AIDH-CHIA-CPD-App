@@ -12,6 +12,7 @@ import '../../services/profile_photo_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/ui_polish.dart';
 import '../../theme/app_theme_extension.dart';
+import '../../utils/date_utils.dart';
 import '../../utils/format_points.dart';
 import '../../theme/theme_controller.dart';
 import 'past_cycle_activities_screen.dart';
@@ -717,78 +718,6 @@ class _ProfileAvatar extends StatelessWidget {
   final ImageProvider? photo;
   final VoidCallback onTap;
 
-  Widget _buildOriginalAvatar() {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: photo == null
-            ? const LinearGradient(
-                colors: [AppColors.primary, AppColors.primaryDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
-        image: photo != null
-            ? DecorationImage(image: photo!, fit: BoxFit.cover)
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: photo == null
-          ? const Center(
-              child: Text(
-                'CHIA',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                ),
-              ),
-            )
-          : null,
-    );
-  }
-
-  Widget _buildPolishedAvatar() {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.primary, width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.2),
-            blurRadius: 12,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: CircleAvatar(
-        radius: 44,
-        backgroundColor: AppColors.primary,
-        backgroundImage: photo,
-        child: photo == null
-            ? const Text(
-                'CHIA',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
-                ),
-              )
-            : null,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -796,7 +725,35 @@ class _ProfileAvatar extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          kUsePolishedUI ? _buildPolishedAvatar() : _buildOriginalAvatar(),
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.primary, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  blurRadius: 12,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 44,
+              backgroundColor: AppColors.primary,
+              backgroundImage: photo,
+              child: photo == null
+                  ? const Text(
+                      'CHIA',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                      ),
+                    )
+                  : null,
+            ),
+          ),
           Positioned(
             right: -2,
             bottom: -2,
@@ -874,7 +831,7 @@ class _ActiveCycleCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${_formatDate(cycle.startDate)} → ${_formatDate(cycle.endDate)}',
+                      '${formatDate(cycle.startDate)} → ${formatDate(cycle.endDate)}',
                       style: TextStyle(
                         color: context.appExt.textHint,
                         fontSize: 12,
@@ -956,12 +913,12 @@ class _ExpiryCard extends StatelessWidget {
       icon = Icons.warning_amber_rounded;
       heading = '⚠ Expiring soon';
       body =
-          'Ensure you submit your 60 CPD points before ${_formatDate(endDate)}.';
+          'Ensure you submit your 60 CPD points before ${formatDate(endDate)}.';
     } else {
       accent = AppColors.success;
       icon = Icons.verified_outlined;
       heading = '✓ Credential active';
-      body = 'Expires on ${_formatDate(endDate)} ($daysAway days from now).';
+      body = 'Expires on ${formatDate(endDate)} ($daysAway days from now).';
     }
 
     return Container(
@@ -1042,7 +999,7 @@ class _SummaryCard extends StatelessWidget {
                 child: _SummaryTile(
                   label: 'Total pts',
                   value: formatPoints(totalPoints),
-                  icon: kUsePolishedUI ? Icons.star_rounded : null,
+                  icon: Icons.star_rounded,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1050,7 +1007,7 @@ class _SummaryCard extends StatelessWidget {
                 child: _SummaryTile(
                   label: 'Pts remaining',
                   value: formatPoints(remaining),
-                  icon: kUsePolishedUI ? Icons.flag_rounded : null,
+                  icon: Icons.flag_rounded,
                 ),
               ),
             ],
@@ -1062,7 +1019,7 @@ class _SummaryCard extends StatelessWidget {
                 child: _SummaryTile(
                   label: 'Activities',
                   value: '$activitiesCount',
-                  icon: kUsePolishedUI ? Icons.list_alt_rounded : null,
+                  icon: Icons.list_alt_rounded,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1070,7 +1027,7 @@ class _SummaryCard extends StatelessWidget {
                 child: _SummaryTile(
                   label: 'Categories used',
                   value: '$categoriesUsed / 10',
-                  icon: kUsePolishedUI ? Icons.category_rounded : null,
+                  icon: Icons.category_rounded,
                 ),
               ),
             ],
@@ -1103,7 +1060,7 @@ class _SummaryTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (kUsePolishedUI && icon != null) ...[
+          if (icon != null) ...[
             Icon(icon, color: AppColors.primary, size: 22),
             const SizedBox(height: 6),
           ],
@@ -1468,7 +1425,7 @@ class _CycleListTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${_formatDate(cycle.startDate)} → ${_formatDate(cycle.endDate)}',
+                  '${formatDate(cycle.startDate)} → ${formatDate(cycle.endDate)}',
                   style: TextStyle(
                     color: context.appExt.textHint,
                     fontSize: 12,
@@ -1616,25 +1573,3 @@ class _ProfileData {
   final Map<int, Map<String, double>> pointsByCategory;
 }
 
-String _formatDate(String iso) {
-  try {
-    final dt = DateTime.parse(iso);
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${dt.day.toString().padLeft(2, '0')} ${months[dt.month - 1]} ${dt.year}';
-  } catch (_) {
-    return iso;
-  }
-}
