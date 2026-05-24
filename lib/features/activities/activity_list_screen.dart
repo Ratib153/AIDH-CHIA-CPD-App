@@ -4,8 +4,10 @@ import '../../constants/cpd_categories.dart';
 import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
 import '../../utils/format_points.dart';
+import '../../widgets/category_cap_label.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
+import '../../theme/ui_polish.dart';
 import 'activity_detail_screen.dart';
 import 'add_activity_screen.dart';
 
@@ -28,16 +30,23 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
       return const _ActivityListViewData(
         cycleId: null,
         activities: [],
-        totalAll: 0,
+        allActivities: [],
+        totalLogged: 0,
+        totalEffective: 0,
       );
     }
     final all = await _databaseService.getActivitiesByCycle(cycle!.id!);
     final filtered = _applyFilter(all);
-    final total = all.fold<double>(0, (sum, a) => sum + a.pointsClaimed);
+    final totalLogged =
+        all.fold<double>(0, (sum, a) => sum + a.pointsClaimed);
+    final totalEffective =
+        await _databaseService.getTotalPointsByCycle(cycle.id!);
     return _ActivityListViewData(
       cycleId: cycle.id,
       activities: filtered,
-      totalAll: total,
+      allActivities: all,
+      totalLogged: totalLogged,
+      totalEffective: totalEffective,
     );
   }
 
@@ -121,12 +130,14 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
               children: [
                 _Header(
                   count: activities.length,
-                  totalPoints: view.totalAll,
+                  totalLogged: view.totalLogged,
+                  totalEffective: view.totalEffective,
                   showBack: Navigator.of(context).canPop(),
                   onBack: () => Navigator.of(context).maybePop(),
                 ),
                 _FilterChips(
                   active: _activeFilter,
+                  allActivities: view.allActivities,
                   onChanged: (value) => setState(() => _activeFilter = value),
                 ),
                 const SizedBox(height: 8),
@@ -161,13 +172,15 @@ class _ActivityListScreenState extends State<ActivityListScreen> {
 class _Header extends StatelessWidget {
   const _Header({
     required this.count,
-    required this.totalPoints,
+    required this.totalLogged,
+    required this.totalEffective,
     required this.showBack,
     required this.onBack,
   });
 
   final int count;
-  final double totalPoints;
+  final double totalLogged;
+  final double totalEffective;
   final bool showBack;
   final VoidCallback onBack;
 
@@ -200,7 +213,12 @@ class _Header extends StatelessWidget {
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 4),
                 Text(
-                  '$count ${count == 1 ? 'activity' : 'activities'} · ${formatPoints(totalPoints)} pts this cycle',
+                  totalLogged != totalEffective
+                      ? '$count ${count == 1 ? 'activity' : 'activities'} · '
+                          '${formatPoints(totalLogged)} logged · '
+                          '${formatPoints(totalEffective)} count toward 60'
+                      : '$count ${count == 1 ? 'activity' : 'activities'} · '
+                          '${formatPoints(totalEffective)} pts this cycle',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -213,10 +231,35 @@ class _Header extends StatelessWidget {
 }
 
 class _FilterChips extends StatelessWidget {
-  const _FilterChips({required this.active, required this.onChanged});
+  const _FilterChips({
+    required this.active,
+    required this.allActivities,
+    required this.onChanged,
+  });
 
   final Object active;
+  final List<CpdActivity> allActivities;
   final ValueChanged<Object> onChanged;
+
+  int _countFor(Object value) {
+    if (value is int) {
+      if (value == 0) return allActivities.length;
+      return allActivities.where((a) => a.categoryId == value).length;
+    }
+    if (value is String) {
+      return allActivities.where((a) => a.competencyDomain == value).length;
+    }
+    return 0;
+  }
+
+  String _chipLabel(String base, Object value) {
+    if (!kUsePolishedUI) return base;
+    final count = _countFor(value);
+    if (value is int && value >= 1 && value <= 10 && count > 0) {
+      return '$base ($count)';
+    }
+    return base;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -227,9 +270,13 @@ class _FilterChips extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _chip(context, label: 'All', value: 0),
+            _chip(context, label: _chipLabel('All', 0), value: 0),
             for (int i = 1; i <= 10; i++)
-              _chip(context, label: 'Cat $i', value: i),
+              _chip(
+                context,
+                label: _chipLabel('Cat $i', i),
+                value: i,
+              ),
             const SizedBox(width: 4),
             Container(
               width: 1,
@@ -300,35 +347,42 @@ class _GroupedList extends StatelessWidget {
     }
     final orderedKeys = grouped.keys.toList()..sort();
 
+    var itemIndex = 0;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-      children: orderedKeys.map((categoryId) {
+      children: orderedKeys.expand((categoryId) {
         final rows = grouped[categoryId]!;
         final name = rows.first.categoryName;
         final categoryTotal =
             rows.fold<double>(0, (sum, a) => sum + a.pointsClaimed);
-        return Padding(
-          padding: const EdgeInsets.only(top: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _CategoryGroupHeader(
+        final widgets = <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: PolishedListFadeIn(
+              index: itemIndex++,
+              child: _CategoryGroupHeader(
                 categoryId: categoryId,
                 name: name,
                 total: categoryTotal,
               ),
-              const SizedBox(height: 10),
-              for (final activity in rows) ...[
-                _ActivityCard(
-                  activity: activity,
-                  onDelete: () => onDelete(activity),
-                  onRefresh: onRefresh,
-                ),
-                const SizedBox(height: 10),
-              ],
-            ],
+            ),
           ),
-        );
+          const SizedBox(height: 10),
+        ];
+        for (final activity in rows) {
+          widgets.add(
+            PolishedListFadeIn(
+              index: itemIndex++,
+              child: _ActivityCard(
+                activity: activity,
+                onDelete: () => onDelete(activity),
+                onRefresh: onRefresh,
+              ),
+            ),
+          );
+          widgets.add(const SizedBox(height: 10));
+        }
+        return widgets;
       }).toList(),
     );
   }
@@ -345,10 +399,10 @@ class _CategoryGroupHeader extends StatelessWidget {
   final String name;
   final double total;
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildOriginal(BuildContext context) {
     final accent = AppColors.forCategory(categoryId);
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 4,
@@ -367,7 +421,7 @@ class _CategoryGroupHeader extends StatelessWidget {
           ),
           child: Text(
             'Cat $categoryId',
-            style: TextStyle(
+            style: const TextStyle(
               color: AppColors.primary,
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -388,16 +442,87 @@ class _CategoryGroupHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          '${formatPoints(total)} pts',
-          style: TextStyle(
-            color: context.appExt.textSecondary,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
+        CategoryCapLabel(categoryId: categoryId, claimed: total),
+      ],
+    );
+  }
+
+  Widget _buildPolished(BuildContext context) {
+    final accent = categoryAccentForId(categoryId);
+    final cap = cpdCategoryCap(categoryId);
+    final effective = effectiveCategoryPoints(total, categoryId);
+    final isOverCap = cap != null && total > cap;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 4,
+          height: 24,
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: context.appExt.primaryTint,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            'Cat $categoryId',
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            name,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: context.appExt.textPrimary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: isOverCap
+                ? const Color(0xFFFEF3C7)
+                : const Color(0xFFE6F3FB),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            isOverCap
+                ? '${formatPoints(effective)} / ${cap.toStringAsFixed(0)} pts ⚠'
+                : '${formatPoints(total)} pts',
+            style: TextStyle(
+              color: isOverCap
+                  ? const Color(0xFF92400E)
+                  : const Color(0xFF0082C8),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (kUsePolishedUI) return _buildPolished(context);
+    return _buildOriginal(context);
   }
 }
 
@@ -412,9 +537,14 @@ class _ActivityCard extends StatelessWidget {
   final Future<void> Function() onDelete;
   final VoidCallback onRefresh;
 
+  Color _accentColor() {
+    if (kUsePolishedUI) return categoryAccentForId(activity.categoryId);
+    return AppColors.forCategory(activity.categoryId);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.forCategory(activity.categoryId);
+    final accent = _accentColor();
     return Dismissible(
       key: ValueKey(activity.id),
       direction: DismissDirection.endToStart,
@@ -556,8 +686,7 @@ class _EmptyState extends StatelessWidget {
 
   final VoidCallback onAdd;
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildOriginal(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -605,16 +734,80 @@ class _EmptyState extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildPolished(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 60),
+            Container(
+              width: 100,
+              height: 100,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE6F3FB),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.assignment_outlined,
+                size: 48,
+                color: Color(0xFF0082C8),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'No activities yet',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0D1321),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tap + Add Activity to log your first CPD activity.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF4A5570),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 220,
+              child: FilledButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Activity'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (kUsePolishedUI) return _buildPolished(context);
+    return _buildOriginal(context);
+  }
 }
 
 class _ActivityListViewData {
   const _ActivityListViewData({
     required this.cycleId,
     required this.activities,
-    required this.totalAll,
+    required this.allActivities,
+    required this.totalLogged,
+    required this.totalEffective,
   });
 
   final int? cycleId;
   final List<CpdActivity> activities;
-  final double totalAll;
+  final List<CpdActivity> allActivities;
+  final double totalLogged;
+  final double totalEffective;
 }

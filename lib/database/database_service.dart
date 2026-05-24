@@ -365,6 +365,44 @@ class DatabaseService {
     }
   }
 
+  /// Effective (cap-adjusted) points summed per competency domain A–F.
+  Future<Map<String, double>> getPointsByDomain(int cycleId) async {
+    try {
+      final activities = await getActivitiesByCycle(cycleId);
+      final categoryTotals = await getPointsByCategory(cycleId);
+      final domainTotals = <String, double>{
+        for (final d in ['A', 'B', 'C', 'D', 'E', 'F']) d: 0.0,
+      };
+
+      final byCategory = <int, List<CpdActivity>>{};
+      for (final activity in activities) {
+        byCategory.putIfAbsent(activity.categoryId, () => []).add(activity);
+      }
+
+      for (final entry in byCategory.entries) {
+        final catId = entry.key;
+        final catActivities = entry.value;
+        final claimed = categoryTotals[catId]?['claimed'] ?? 0.0;
+        final effective = categoryTotals[catId]?['effective'] ?? 0.0;
+        final ratio = claimed > 0 ? effective / claimed : 1.0;
+
+        for (final activity in catActivities) {
+          final domain = activity.competencyDomain?.toUpperCase() ?? '';
+          if (domainTotals.containsKey(domain)) {
+            domainTotals[domain] =
+                domainTotals[domain]! + activity.pointsClaimed * ratio;
+          }
+        }
+      }
+
+      return domainTotals.map(
+        (k, v) => MapEntry(k, double.parse(v.toStringAsFixed(1))),
+      );
+    } catch (e) {
+      throw Exception('Failed to fetch points by domain: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> getExportData(int cycleId) async {
     try {
       final db = await database;

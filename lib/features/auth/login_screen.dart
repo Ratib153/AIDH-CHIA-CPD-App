@@ -191,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Image.asset(
                       'assets/images/chia_logo.png',
-                      height: 56,
+                      height: 64,
                       fit: BoxFit.contain,
                     ),
                     const SizedBox(height: 24),

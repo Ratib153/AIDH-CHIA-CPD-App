@@ -6,6 +6,7 @@ import '../../models/cpd_activity.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
 import '../../theme/theme_controller.dart';
+import '../../theme/ui_polish.dart';
 import '../activities/activity_list_screen.dart';
 import '../activities/add_activity_screen.dart';
 import '../../navigation/app_navigator.dart';
@@ -47,15 +48,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final activities = await _databaseService.getActivitiesByCycle(cycle!.id!);
     final totalPoints = await _databaseService.getTotalPointsByCycle(cycle.id!);
     final pointsByCategory = await _databaseService.getPointsByCategory(cycle.id!);
-    final domainTotals = <String, double>{
-      for (final d in ['A', 'B', 'C', 'D', 'E', 'F']) d: 0
-    };
-    for (final activity in activities) {
-      final code = activity.competencyDomain;
-      if (code != null && domainTotals.containsKey(code)) {
-        domainTotals[code] = domainTotals[code]! + activity.pointsClaimed;
-      }
-    }
+    final domainTotals = await _databaseService.getPointsByDomain(cycle.id!);
 
     return _DashboardData(
       cycleName: cycle.cycleName,
@@ -183,7 +176,7 @@ class _ChiaBrandMark extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Image.asset(
         _logoAsset,
-        height: 48,
+        height: 60,
         fit: BoxFit.contain,
         alignment: Alignment.centerLeft,
         filterQuality: FilterQuality.high,
@@ -196,6 +189,44 @@ class _HeroProgressCard extends StatelessWidget {
   const _HeroProgressCard({required this.data});
 
   final _DashboardData data;
+
+  String _displayEndDate() {
+    if (kUsePolishedUI) return formatDateForDisplay(data.endDate);
+    return data.endDate;
+  }
+
+  Widget _buildProgressCircle(double progress, bool goalReached) {
+    final size = kUsePolishedUI ? 120.0 : 110.0;
+    final stroke = kUsePolishedUI ? 10.0 : 9.0;
+    final indicator = SizedBox(
+      width: size,
+      height: size,
+      child: CircularProgressIndicator(
+        value: progress,
+        strokeWidth: stroke,
+        backgroundColor: Colors.white.withValues(alpha: 0.2),
+        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+      ),
+    );
+
+    if (!kUsePolishedUI) return indicator;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.white.withValues(alpha: 0.25),
+            blurRadius: 20,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: indicator,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,22 +265,12 @@ class _HeroProgressCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
-                width: 110,
-                height: 110,
+                width: kUsePolishedUI ? 120 : 110,
+                height: kUsePolishedUI ? 120 : 110,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    SizedBox(
-                      width: 110,
-                      height: 110,
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 9,
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        valueColor:
-                            const AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    ),
+                    _buildProgressCircle(progress, goalReached),
                     if (goalReached)
                       const Icon(Icons.check_rounded,
                               color: Colors.white, size: 48)
@@ -287,7 +308,7 @@ class _HeroProgressCard extends StatelessWidget {
                   children: [
                     _HeroLine(label: 'Active Cycle:', value: data.cycleName),
                     const SizedBox(height: 6),
-                    _HeroLine(label: 'Expires:', value: data.endDate),
+                    _HeroLine(label: 'Expires:', value: _displayEndDate()),
                     const SizedBox(height: 6),
                     _HeroLine(
                       label: 'Points remaining:',
@@ -309,7 +330,7 @@ class _HeroProgressCard extends StatelessWidget {
             const SizedBox(height: 14),
             _HeroChip(
               icon: Icons.warning_amber_rounded,
-              label: '⚠ Expires soon — ${data.endDate}',
+              label: '⚠ Expires soon — ${_displayEndDate()}',
               bg: AppColors.warning,
             ),
           ],
@@ -455,13 +476,12 @@ class _QuickAction extends StatelessWidget {
   final VoidCallback onTap;
   final bool isPrimary;
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildOriginal(BuildContext context) {
     final ext = context.appExt;
     final bg = isPrimary ? AppColors.primary : ext.card;
     final fg = isPrimary ? Colors.white : AppColors.primary;
     final borderColor =
-        isPrimary ? AppColors.primary : AppColors.primary.withOpacity(0.4);
+        isPrimary ? AppColors.primary : AppColors.primary.withValues(alpha: 0.4);
 
     return Material(
       color: Colors.transparent,
@@ -499,6 +519,52 @@ class _QuickAction extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildPolished(BuildContext context) {
+    if (isPrimary) return _buildOriginal(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          height: 84,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE6F3FB),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.primary, width: 1.5),
+            boxShadow: kPolishedShadow,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: AppColors.primary, size: 28),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (kUsePolishedUI) return _buildPolished(context);
+    return _buildOriginal(context);
+  }
 }
 
 class _SectionHeading extends StatelessWidget {
@@ -508,7 +574,7 @@ class _SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: Theme.of(context).textTheme.titleLarge);
+    return sectionHeading(text, style: Theme.of(context).textTheme.titleLarge);
   }
 }
 
@@ -548,6 +614,28 @@ class _CategoryRow extends StatelessWidget {
   final double? cap;
   final double total;
 
+  BoxDecoration _cardDecoration(BuildContext context) {
+    final ext = context.appExt;
+    if (!kUsePolishedUI) {
+      return BoxDecoration(
+        color: ext.card,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: ext.cardShadow,
+      );
+    }
+    return BoxDecoration(
+      color: ext.card,
+      borderRadius: BorderRadius.circular(12),
+      border: Border(
+        left: BorderSide(
+          color: categoryAccentForId(categoryId),
+          width: 4,
+        ),
+      ),
+      boxShadow: kPolishedShadow,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final reached = cap != null && total >= cap!;
@@ -564,14 +652,10 @@ class _CategoryRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => CategoryInfoSheet.show(context, categoryId),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kUsePolishedUI ? 12 : 16),
         child: Container(
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: context.appExt.card,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: context.appExt.cardShadow,
-          ),
+          decoration: _cardDecoration(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -809,9 +893,14 @@ class _RecentActivityCard extends StatelessWidget {
 
   final CpdActivity activity;
 
+  Color _accentColor() {
+    if (kUsePolishedUI) return categoryAccentForId(activity.categoryId);
+    return AppColors.forCategory(activity.categoryId);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.forCategory(activity.categoryId);
+    final accent = _accentColor();
     return Container(
       decoration: BoxDecoration(
         color: context.appExt.card,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_theme_extension.dart';
+import 'ui_polish.dart';
 
 class AppColors {
   static const primary = Color(0xFF0082C8);
@@ -353,6 +354,8 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
+      pageTransitionsTheme:
+          polishedPageTransitionsTheme() ?? const PageTransitionsTheme(),
     );
   }
 }

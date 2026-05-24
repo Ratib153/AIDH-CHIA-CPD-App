@@ -8,10 +8,13 @@ import '../../constants/settings_keys.dart';
 import '../../database/database_service.dart';
 import '../../firebase_options.dart';
 import '../../models/recertification_cycle.dart';
+import '../../services/profile_photo_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/ui_polish.dart';
 import '../../theme/app_theme_extension.dart';
 import '../../utils/format_points.dart';
 import '../../theme/theme_controller.dart';
+import 'past_cycle_activities_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -28,6 +31,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _credentialController = TextEditingController();
+
+  ImageProvider? _profilePhoto;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfilePhoto();
+  }
+
+  Future<void> _loadProfilePhoto() async {
+    final photo =
+        await ProfilePhotoService.instance.loadPhoto(_databaseService);
+    if (mounted) setState(() => _profilePhoto = photo);
+  }
+
+  Future<void> _changeProfilePhoto() async {
+    final saved =
+        await ProfilePhotoService.instance.pickAndSave(_databaseService);
+    if (!mounted) return;
+    if (saved) {
+      await _loadProfilePhoto();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile photo updated.')),
+      );
+    }
+  }
+
+  void _openCycleActivities(RecertificationCycle cycle) {
+    if (cycle.id == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PastCycleActivitiesScreen(cycle: cycle),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -235,7 +273,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 14),
                 for (final cycle in all) ...[
-                  _CycleListTile(cycle: cycle),
+                  _CycleListTile(
+                    cycle: cycle,
+                    onTap: cycle.id == null
+                        ? null
+                        : () {
+                            Navigator.pop(context);
+                            _openCycleActivities(cycle);
+                          },
+                  ),
                   const SizedBox(height: 8),
                 ],
               ],
@@ -474,6 +520,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 displayName: data.displayName,
                 usesFirebaseUsername: data.usesFirebaseUsername,
                 credentialNumber: data.credentialNumber,
+                profilePhoto: _profilePhoto,
+                onPhotoTap: _changeProfilePhoto,
                 isEditing: _isEditing,
                 isSaving: _isSaving,
                 nameController: _nameController,
@@ -511,7 +559,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           .length,
                     ),
                     const SizedBox(height: 22),
-                    Text(
+                    sectionHeading(
                       'Settings',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
@@ -557,6 +605,8 @@ class _ProfileHeader extends StatelessWidget {
     required this.displayName,
     required this.usesFirebaseUsername,
     required this.credentialNumber,
+    required this.profilePhoto,
+    required this.onPhotoTap,
     required this.isEditing,
     required this.isSaving,
     required this.nameController,
@@ -567,6 +617,8 @@ class _ProfileHeader extends StatelessWidget {
   final String displayName;
   final bool usesFirebaseUsername;
   final String credentialNumber;
+  final ImageProvider? profilePhoto;
+  final VoidCallback onPhotoTap;
   final bool isEditing;
   final bool isSaving;
   final TextEditingController nameController;
@@ -581,7 +633,7 @@ class _ProfileHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
       child: Column(
         children: [
-          const _ChiaCircularBadge(),
+          _ProfileAvatar(photo: profilePhoto, onTap: onPhotoTap),
           const SizedBox(height: 14),
           if (!isEditing) ...[
             Text(
@@ -658,40 +710,112 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-/// Circular brand badge used in lieu of an image asset.
-class _ChiaCircularBadge extends StatelessWidget {
-  const _ChiaCircularBadge();
+/// Profile avatar with optional custom photo and change control.
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({required this.photo, required this.onTap});
 
-  @override
-  Widget build(BuildContext context) {
+  final ImageProvider? photo;
+  final VoidCallback onTap;
+
+  Widget _buildOriginalAvatar() {
     return Container(
       width: 80,
       height: 80,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: photo == null
+            ? const LinearGradient(
+                colors: [AppColors.primary, AppColors.primaryDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+        image: photo != null
+            ? DecorationImage(image: photo!, fit: BoxFit.cover)
+            : null,
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.25),
+            color: AppColors.primary.withValues(alpha: 0.25),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: const Center(
-        child: Text(
-          'CHIA',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2,
+      child: photo == null
+          ? const Center(
+              child: Text(
+                'CHIA',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildPolishedAvatar() {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.primary, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.2),
+            blurRadius: 12,
+            spreadRadius: 2,
           ),
-        ),
+        ],
+      ),
+      child: CircleAvatar(
+        radius: 44,
+        backgroundColor: AppColors.primary,
+        backgroundImage: photo,
+        child: photo == null
+            ? const Text(
+                'CHIA',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              )
+            : null,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          kUsePolishedUI ? _buildPolishedAvatar() : _buildOriginalAvatar(),
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: const Icon(
+                Icons.camera_alt,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -918,6 +1042,7 @@ class _SummaryCard extends StatelessWidget {
                 child: _SummaryTile(
                   label: 'Total pts',
                   value: formatPoints(totalPoints),
+                  icon: kUsePolishedUI ? Icons.star_rounded : null,
                 ),
               ),
               const SizedBox(width: 10),
@@ -925,6 +1050,7 @@ class _SummaryCard extends StatelessWidget {
                 child: _SummaryTile(
                   label: 'Pts remaining',
                   value: formatPoints(remaining),
+                  icon: kUsePolishedUI ? Icons.flag_rounded : null,
                 ),
               ),
             ],
@@ -936,6 +1062,7 @@ class _SummaryCard extends StatelessWidget {
                 child: _SummaryTile(
                   label: 'Activities',
                   value: '$activitiesCount',
+                  icon: kUsePolishedUI ? Icons.list_alt_rounded : null,
                 ),
               ),
               const SizedBox(width: 10),
@@ -943,6 +1070,7 @@ class _SummaryCard extends StatelessWidget {
                 child: _SummaryTile(
                   label: 'Categories used',
                   value: '$categoriesUsed / 10',
+                  icon: kUsePolishedUI ? Icons.category_rounded : null,
                 ),
               ),
             ],
@@ -954,10 +1082,15 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _SummaryTile extends StatelessWidget {
-  const _SummaryTile({required this.label, required this.value});
+  const _SummaryTile({
+    required this.label,
+    required this.value,
+    this.icon,
+  });
 
   final String label;
   final String value;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -970,6 +1103,10 @@ class _SummaryTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (kUsePolishedUI && icon != null) ...[
+            Icon(icon, color: AppColors.primary, size: 22),
+            const SizedBox(height: 6),
+          ],
           Text(
             label,
             style: TextStyle(
@@ -1289,13 +1426,14 @@ class _DangerZone extends StatelessWidget {
 }
 
 class _CycleListTile extends StatelessWidget {
-  const _CycleListTile({required this.cycle});
+  const _CycleListTile({required this.cycle, this.onTap});
 
   final RecertificationCycle cycle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final content = Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: cycle.isActive ? context.appExt.primaryTint : context.appExt.card,
@@ -1336,6 +1474,17 @@ class _CycleListTile extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
+                if (onTap != null && !cycle.isActive) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap to view activities',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1354,8 +1503,21 @@ class _CycleListTile extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
+            )
+          else if (onTap != null)
+            Icon(Icons.chevron_right, color: context.appExt.textHint, size: 20),
         ],
+      ),
+    );
+
+    if (onTap == null) return content;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: content,
       ),
     );
   }
