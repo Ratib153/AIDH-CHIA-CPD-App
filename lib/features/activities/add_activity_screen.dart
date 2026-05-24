@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../constants/cpd_categories.dart';
@@ -5,6 +6,7 @@ import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
+import '../../utils/format_points.dart';
 import '../../widgets/category_info_sheet.dart';
 
 class AddActivityScreen extends StatefulWidget {
@@ -135,7 +137,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     _fields['evidence']!.text = ex.evidenceNote ?? '';
     _selectedDomain = ex.competencyDomain;
     _pointsClaimed = ex.pointsClaimed;
-    _fields['points']!.text = ex.pointsClaimed.toStringAsFixed(2);
+    _fields['points']!.text = formatPoints(ex.pointsClaimed);
     _eligibility = true;
   }
 
@@ -153,7 +155,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
           (cap - currentCategoryPoints).clamp(0.0, _pointsClaimed).toDouble();
       warning =
           'Adding this activity will exceed the cap for ${category['name']} (cap: ${cap.toStringAsFixed(0)} pts). '
-          'Only ${countable.toStringAsFixed(1)} pts of your ${_pointsClaimed.toStringAsFixed(1)} pts claimed will count towards your 60-point total.';
+          'Only ${formatPoints(countable)} pts of your ${formatPoints(_pointsClaimed)} pts claimed will count towards your 60-point total.';
     }
     final cycleTotal = await _databaseService.getTotalPointsByCycle(active.id!);
     String? success;
@@ -238,7 +240,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     setState(() {
       _pointsClaimed = points;
       if ([1, 2, 3, 4, 5, 6, 7, 8, 9].contains(_selectedCategoryId)) {
-        _fields['points']!.text = points.toStringAsFixed(2);
+        _fields['points']!.text = formatPoints(points);
       }
     });
     _recomputeWarnings();
@@ -292,6 +294,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
 
       final activity = CpdActivity(
         id: existing?.id,
+        userId: FirebaseAuth.instance.currentUser!.uid,
         cycleId: cycleIdValue,
         dateLogged: _dateLogged.toIso8601String().substring(0, 10),
         categoryId: _selectedCategoryId!,
@@ -329,7 +332,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(
-                  'Activity updated — ${_pointsClaimed.toStringAsFixed(1)} pts')),
+                  'Activity updated — ${formatPoints(_pointsClaimed)} pts')),
         );
       } else {
         await _databaseService.addActivity(activity);
@@ -337,7 +340,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(
-                  'Activity added — ${_pointsClaimed.toStringAsFixed(1)} pts logged')),
+                  'Activity added — ${formatPoints(_pointsClaimed)} pts logged')),
         );
       }
       Navigator.of(context).pop(true);
@@ -1391,7 +1394,7 @@ class _CategorySelectionCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        '${currentPoints.toStringAsFixed(1)} / ${cap!.toStringAsFixed(0)} pts logged',
+                        '${formatPoints(currentPoints)} / ${cap!.toStringAsFixed(0)} pts logged',
                         style: TextStyle(
                           color: context.appExt.textSecondary,
                           fontSize: 11,
@@ -1412,7 +1415,7 @@ class _CategorySelectionCard extends StatelessWidget {
                   ),
                 ] else
                   Text(
-                    '${currentPoints.toStringAsFixed(1)} pts logged so far',
+                    '${formatPoints(currentPoints)} pts logged so far',
                     style: TextStyle(
                       color: context.appExt.textSecondary,
                       fontSize: 11,

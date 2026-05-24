@@ -16,12 +16,16 @@ class ThemeController extends ChangeNotifier {
   bool get isDark => _mode == ThemeMode.dark;
 
   Future<void> load() async {
-    final stored =
-        await DatabaseService.instance.getSetting(kThemeMode);
-    if (stored == 'dark') {
-      _mode = ThemeMode.dark;
-    } else {
-      _mode = ThemeMode.light;
+    try {
+      final stored =
+          await DatabaseService.instance.getSetting(kThemeMode);
+      if (stored == 'dark') {
+        _mode = ThemeMode.dark;
+      } else {
+        _mode = ThemeMode.light;
+      }
+    } catch (_) {
+      // No authenticated user yet; keep default theme.
     }
     notifyListeners();
   }

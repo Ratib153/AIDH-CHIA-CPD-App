@@ -10,6 +10,7 @@ import '../../firebase_options.dart';
 import '../../models/recertification_cycle.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
+import '../../utils/format_points.dart';
 import '../../theme/theme_controller.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -174,6 +175,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final nextNumber = all.length + 1;
     final now = DateTime.now();
     final newCycle = RecertificationCycle(
+      userId: AuthService.instance.currentUser!.uid,
       cycleName: 'Cycle $nextNumber',
       startDate: now.toIso8601String().substring(0, 10),
       endDate: now
@@ -763,7 +765,7 @@ class _ActiveCycleCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                '${totalPoints.toStringAsFixed(1)} / ${cycle.targetPoints.toStringAsFixed(0)} pts',
+                '${formatPoints(totalPoints)} / ${cycle.targetPoints.toStringAsFixed(0)} pts',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -915,14 +917,14 @@ class _SummaryCard extends StatelessWidget {
               Expanded(
                 child: _SummaryTile(
                   label: 'Total pts',
-                  value: totalPoints.toStringAsFixed(1),
+                  value: formatPoints(totalPoints),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _SummaryTile(
                   label: 'Pts remaining',
-                  value: remaining.toStringAsFixed(1),
+                  value: formatPoints(remaining),
                 ),
               ),
             ],

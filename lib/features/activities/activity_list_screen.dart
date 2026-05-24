@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../constants/cpd_categories.dart';
 import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
+import '../../utils/format_points.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
 import 'activity_detail_screen.dart';
@@ -199,7 +200,7 @@ class _Header extends StatelessWidget {
                     style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 4),
                 Text(
-                  '$count ${count == 1 ? 'activity' : 'activities'} · ${totalPoints.toStringAsFixed(1)} pts this cycle',
+                  '$count ${count == 1 ? 'activity' : 'activities'} · ${formatPoints(totalPoints)} pts this cycle',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -388,7 +389,7 @@ class _CategoryGroupHeader extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(
-          '${total.toStringAsFixed(1)} pts',
+          '${formatPoints(total)} pts',
           style: TextStyle(
             color: context.appExt.textSecondary,
             fontSize: 13,
@@ -529,7 +530,7 @@ class _ActivityCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            '${activity.pointsClaimed.toStringAsFixed(1)} pts',
+                            '${formatPoints(activity.pointsClaimed)} pts',
                             style: TextStyle(
                               color: AppColors.primary,
                               fontSize: 16,

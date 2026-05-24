@@ -1,6 +1,7 @@
 class CpdActivity {
   CpdActivity({
     this.id,
+    required this.userId,
     required this.cycleId,
     required this.dateLogged,
     required this.categoryId,
@@ -18,6 +19,7 @@ class CpdActivity {
   });
 
   final int? id;
+  final String userId;
   final int cycleId;
   final String dateLogged;
   final int categoryId;
@@ -41,7 +43,8 @@ class CpdActivity {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
+      'user_id': userId,
       'cycle_id': cycleId,
       'date_logged': dateLogged,
       'category_id': categoryId,
@@ -62,6 +65,7 @@ class CpdActivity {
   factory CpdActivity.fromMap(Map<String, dynamic> map) {
     return CpdActivity(
       id: map['id'] as int?,
+      userId: map['user_id'] as String? ?? '',
       cycleId: map['cycle_id'] as int,
       dateLogged: map['date_logged'] as String,
       categoryId: map['category_id'] as int,
@@ -81,6 +85,7 @@ class CpdActivity {
 
   CpdActivity copyWith({
     int? id,
+    String? userId,
     int? cycleId,
     String? dateLogged,
     int? categoryId,
@@ -98,6 +103,7 @@ class CpdActivity {
   }) {
     return CpdActivity(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       cycleId: cycleId ?? this.cycleId,
       dateLogged: dateLogged ?? this.dateLogged,
       categoryId: categoryId ?? this.categoryId,

@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../models/cpd_activity.dart';
+import '../../utils/format_points.dart';
 
 /// PDF/Excel export result; [path] is null if the user cancelled Save As.
 class ExportResult {
@@ -145,10 +146,5 @@ class ExportService {
     return '${date.year}-$month-$day';
   }
 
-  String _formatPoints(double value) {
-    if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-    return value.toStringAsFixed(1);
-  }
+  String _formatPoints(double value) => formatPoints(value);
 }

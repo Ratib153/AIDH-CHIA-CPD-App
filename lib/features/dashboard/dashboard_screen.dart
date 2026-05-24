@@ -5,10 +5,12 @@ import '../../database/database_service.dart';
 import '../../models/cpd_activity.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
+import '../../theme/theme_controller.dart';
 import '../activities/activity_list_screen.dart';
 import '../activities/add_activity_screen.dart';
 import '../../navigation/app_navigator.dart';
 import '../scan/qr_scanner_screen.dart';
+import '../../utils/format_points.dart';
 import '../../widgets/category_info_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -20,6 +22,21 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final DatabaseService _databaseService = DatabaseService.instance;
+  bool _userDataReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initUserData();
+  }
+
+  Future<void> _initUserData() async {
+    await DatabaseService.instance.seedDefaultCycleIfNeeded();
+    await ThemeController.instance.load();
+    if (mounted) {
+      setState(() => _userDataReady = true);
+    }
+  }
 
   Future<_DashboardData> _loadData() async {
     final cycle = await _databaseService.getActiveCycle();
@@ -53,6 +70,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_userDataReady) {
+      return const SafeArea(
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return SafeArea(
       child: FutureBuilder<_DashboardData>(
         future: _loadData(),
@@ -235,7 +258,7 @@ class _HeroProgressCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _formatPts(data.totalPoints),
+                            formatPoints(data.totalPoints),
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 28,
@@ -268,7 +291,7 @@ class _HeroProgressCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     _HeroLine(
                       label: 'Points remaining:',
-                      value: remaining.toStringAsFixed(1),
+                      value: formatPoints(remaining),
                     ),
                   ],
                 ),
@@ -587,8 +610,8 @@ class _CategoryRow extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     cap == null
-                        ? '${total.toStringAsFixed(1)} pts'
-                        : '${total.toStringAsFixed(1)} / ${cap!.toStringAsFixed(0)} pts',
+                        ? '${formatPoints(total)} pts'
+                        : '${formatPoints(total)} / ${cap!.toStringAsFixed(0)} pts',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -723,7 +746,7 @@ class _DomainGrid extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${entry.value.toStringAsFixed(1)} pts',
+                      '${formatPoints(entry.value)} pts',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -842,7 +865,7 @@ class _RecentActivityCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      '${activity.pointsClaimed.toStringAsFixed(1)} pts',
+                      '${formatPoints(activity.pointsClaimed)} pts',
                       style: TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w800,
@@ -858,15 +881,6 @@ class _RecentActivityCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Compact point formatter:
-/// - 1.5  → "1.5"
-/// - 2.0  → "2"
-/// - 60.0 → "60"
-String _formatPts(double value) {
-  if (value == value.roundToDouble()) return value.toStringAsFixed(0);
-  return value.toStringAsFixed(1);
 }
 
 class _DashboardData {

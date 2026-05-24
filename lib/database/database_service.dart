@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -12,6 +13,17 @@ class DatabaseService {
 
   DatabaseService._init();
 
+  String _getCurrentUserId() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || uid.isEmpty) {
+      throw Exception(
+        'DatabaseService: No authenticated user found. '
+        'Ensure the user is logged in before accessing the database.',
+      );
+    }
+    return uid;
+  }
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('chia_cpd.db');
@@ -20,42 +32,80 @@ class DatabaseService {
 
   Future<void> initDatabase() async {
     try {
-      final db = await database;
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS app_settings (
-          key TEXT PRIMARY KEY,
-          value TEXT
-        );
-      ''');
-      final countResult = await db.rawQuery('SELECT COUNT(*) AS count FROM recertification_cycles');
-      final count = (countResult.first['count'] as int?) ?? 0;
-      if (count == 0) {
-        final now = DateTime.now();
-        final defaultCycle = RecertificationCycle(
+      await database;
+    } catch (e) {
+      throw Exception('Failed to initialize database: $e');
+    }
+  }
+
+  Future<void> seedDefaultCycleIfNeeded() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    final existing = await getActiveCycle();
+    if (existing == null) {
+      final now = DateTime.now();
+      await createCycle(
+        RecertificationCycle(
+          userId: userId,
           cycleName: 'Cycle 1',
           startDate: now.toIso8601String().substring(0, 10),
-          endDate: now.add(const Duration(days: 1095)).toIso8601String().substring(0, 10),
+          endDate: now
+              .add(const Duration(days: 1095))
+              .toIso8601String()
+              .substring(0, 10),
           targetPoints: 60,
           isActive: true,
           createdAt: now.toIso8601String(),
-        );
-        await createCycle(defaultCycle);
-      }
-    } catch (e) {
-      throw Exception('Failed to initialize database: $e');
+        ),
+      );
     }
   }
 
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
-    return openDatabase(path, version: 1, onCreate: _createDB);
+    return openDatabase(
+      path,
+      version: 2,
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade,
+    );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute(
+        "ALTER TABLE cpd_activities ADD COLUMN user_id TEXT NOT NULL DEFAULT ''",
+      );
+      await db.execute(
+        "ALTER TABLE recertification_cycles ADD COLUMN user_id TEXT NOT NULL DEFAULT ''",
+      );
+      await db.execute(
+        "ALTER TABLE app_settings ADD COLUMN user_id TEXT NOT NULL DEFAULT ''",
+      );
+      await db.execute('''
+        CREATE TABLE app_settings_new (
+          user_id TEXT NOT NULL DEFAULT '',
+          key TEXT NOT NULL,
+          value TEXT,
+          PRIMARY KEY (user_id, key)
+        )
+      ''');
+      await db.execute('''
+        INSERT INTO app_settings_new (user_id, key, value)
+        SELECT user_id, key, value FROM app_settings
+      ''');
+      await db.execute('DROP TABLE app_settings');
+      await db.execute('ALTER TABLE app_settings_new RENAME TO app_settings');
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS recertification_cycles (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL DEFAULT '',
         cycle_name TEXT NOT NULL,
         start_date TEXT NOT NULL,
         end_date TEXT NOT NULL,
@@ -68,6 +118,7 @@ class DatabaseService {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS cpd_activities (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL DEFAULT '',
         cycle_id INTEGER NOT NULL,
         date_logged TEXT NOT NULL,
         category_id INTEGER NOT NULL,
@@ -88,8 +139,10 @@ class DatabaseService {
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS app_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT
+        user_id TEXT NOT NULL DEFAULT '',
+        key TEXT NOT NULL,
+        value TEXT,
+        PRIMARY KEY (user_id, key)
       );
     ''');
   }
@@ -106,8 +159,13 @@ class DatabaseService {
   Future<RecertificationCycle> createCycle(RecertificationCycle cycle) async {
     try {
       final db = await database;
-      final id = await db.insert('recertification_cycles', cycle.toMap()..remove('id'));
-      return cycle.copyWith(id: id);
+      final userId = _getCurrentUserId();
+      final cycleWithUser = cycle.copyWith(userId: userId);
+      final id = await db.insert(
+        'recertification_cycles',
+        cycleWithUser.toMap()..remove('id'),
+      );
+      return cycleWithUser.copyWith(id: id);
     } catch (e) {
       throw Exception('Failed to create cycle: $e');
     }
@@ -116,10 +174,11 @@ class DatabaseService {
   Future<RecertificationCycle?> getActiveCycle() async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
       final maps = await db.query(
         'recertification_cycles',
-        where: 'is_active = ?',
-        whereArgs: [1],
+        where: 'is_active = ? AND user_id = ?',
+        whereArgs: [1, userId],
         orderBy: 'id DESC',
         limit: 1,
       );
@@ -133,7 +192,13 @@ class DatabaseService {
   Future<List<RecertificationCycle>> getAllCycles() async {
     try {
       final db = await database;
-      final maps = await db.query('recertification_cycles', orderBy: 'id DESC');
+      final userId = _getCurrentUserId();
+      final maps = await db.query(
+        'recertification_cycles',
+        where: 'user_id = ?',
+        whereArgs: [userId],
+        orderBy: 'id DESC',
+      );
       return maps.map(RecertificationCycle.fromMap).toList();
     } catch (e) {
       throw Exception('Failed to fetch all cycles: $e');
@@ -143,13 +208,19 @@ class DatabaseService {
   Future<int> archiveAndCreateNewCycle(RecertificationCycle newCycle) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
+      final cycleWithUser = newCycle.copyWith(userId: userId, isActive: true);
       return db.transaction((txn) async {
-        await txn.update('recertification_cycles', {'is_active': 0}, where: 'is_active = 1');
-        final id = await txn.insert(
+        await txn.update(
           'recertification_cycles',
-          newCycle.copyWith(isActive: true).toMap()..remove('id'),
+          {'is_active': 0},
+          where: 'is_active = ? AND user_id = ?',
+          whereArgs: [1, userId],
         );
-        return id;
+        return txn.insert(
+          'recertification_cycles',
+          cycleWithUser.toMap()..remove('id'),
+        );
       });
     } catch (e) {
       throw Exception('Failed to archive and create new cycle: $e');
@@ -159,24 +230,26 @@ class DatabaseService {
   Future<CpdActivity> addActivity(CpdActivity activity) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
+      final activityWithUser = activity.copyWith(userId: userId);
       final isDuplicate = await hasPotentialDuplicate(
-        cycleId: activity.cycleId,
-        dateLogged: activity.dateLogged,
-        categoryId: activity.categoryId,
-        activityDescription: activity.activityDescription,
-        providerName: activity.providerName,
+        cycleId: activityWithUser.cycleId,
+        dateLogged: activityWithUser.dateLogged,
+        categoryId: activityWithUser.categoryId,
+        activityDescription: activityWithUser.activityDescription,
+        providerName: activityWithUser.providerName,
       );
       if (isDuplicate) {
         throw StateError('Duplicate activity detected for this cycle.');
       }
       final now = DateTime.now().toIso8601String();
-      final points = _resolvePoints(activity);
-      final toInsert = activity
+      final points = _resolvePoints(activityWithUser);
+      final toInsert = activityWithUser
           .copyWith(pointsClaimed: points, createdAt: now, updatedAt: now, deletedAt: null)
           .toMap()
         ..remove('id');
       final id = await db.insert('cpd_activities', toInsert);
-      return activity.copyWith(
+      return activityWithUser.copyWith(
         id: id,
         pointsClaimed: points,
         createdAt: now,
@@ -191,27 +264,29 @@ class DatabaseService {
   Future<int> updateActivity(CpdActivity activity) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
       if (activity.id == null) {
         throw Exception('Activity id is required for updates.');
       }
       final now = DateTime.now().toIso8601String();
-      final points = _resolvePoints(activity);
+      final activityWithUser = activity.copyWith(userId: userId);
+      final points = _resolvePoints(activityWithUser);
       final isDuplicate = await hasPotentialDuplicate(
-        cycleId: activity.cycleId,
-        dateLogged: activity.dateLogged,
-        categoryId: activity.categoryId,
-        activityDescription: activity.activityDescription,
-        providerName: activity.providerName,
-        excludeId: activity.id,
+        cycleId: activityWithUser.cycleId,
+        dateLogged: activityWithUser.dateLogged,
+        categoryId: activityWithUser.categoryId,
+        activityDescription: activityWithUser.activityDescription,
+        providerName: activityWithUser.providerName,
+        excludeId: activityWithUser.id,
       );
       if (isDuplicate) {
         throw StateError('Duplicate activity detected for this cycle.');
       }
       return db.update(
         'cpd_activities',
-        activity.copyWith(pointsClaimed: points, updatedAt: now).toMap()..remove('id'),
-        where: 'id = ?',
-        whereArgs: [activity.id],
+        activityWithUser.copyWith(pointsClaimed: points, updatedAt: now).toMap()..remove('id'),
+        where: 'id = ? AND user_id = ?',
+        whereArgs: [activityWithUser.id, userId],
       );
     } catch (e) {
       throw Exception('Failed to update activity: $e');
@@ -221,12 +296,13 @@ class DatabaseService {
   Future<int> softDeleteActivity(int id) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
       final now = DateTime.now().toIso8601String();
       return db.update(
         'cpd_activities',
         {'deleted_at': now, 'updated_at': now},
-        where: 'id = ?',
-        whereArgs: [id],
+        where: 'id = ? AND user_id = ?',
+        whereArgs: [id, userId],
       );
     } catch (e) {
       throw Exception('Failed to soft delete activity: $e');
@@ -236,10 +312,11 @@ class DatabaseService {
   Future<List<CpdActivity>> getActivitiesByCycle(int cycleId) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
       final maps = await db.query(
         'cpd_activities',
-        where: 'cycle_id = ? AND deleted_at IS NULL',
-        whereArgs: [cycleId],
+        where: 'cycle_id = ? AND user_id = ? AND deleted_at IS NULL',
+        whereArgs: [cycleId, userId],
         orderBy: 'date_logged DESC, id DESC',
       );
       return maps.map(CpdActivity.fromMap).toList();
@@ -251,9 +328,14 @@ class DatabaseService {
   Future<double> getTotalPointsByCycle(int cycleId) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
       final result = await db.rawQuery(
-        'SELECT COALESCE(SUM(points_claimed), 0) AS total FROM cpd_activities WHERE cycle_id = ? AND deleted_at IS NULL',
-        [cycleId],
+        '''
+        SELECT COALESCE(SUM(points_claimed), 0) AS total
+        FROM cpd_activities
+        WHERE cycle_id = ? AND user_id = ? AND deleted_at IS NULL
+        ''',
+        [cycleId, userId],
       );
       return (result.first['total'] as num?)?.toDouble() ?? 0.0;
     } catch (e) {
@@ -264,15 +346,16 @@ class DatabaseService {
   Future<Map<int, double>> getPointsByCategory(int cycleId) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
       final pointsByCategory = <int, double>{for (var i = 1; i <= 10; i++) i: 0.0};
       final result = await db.rawQuery(
         '''
         SELECT category_id, COALESCE(SUM(points_claimed), 0) AS total
         FROM cpd_activities
-        WHERE cycle_id = ? AND deleted_at IS NULL
+        WHERE cycle_id = ? AND user_id = ? AND deleted_at IS NULL
         GROUP BY category_id
         ''',
-        [cycleId],
+        [cycleId, userId],
       );
       for (final row in result) {
         final categoryId = row['category_id'] as int;
@@ -287,10 +370,11 @@ class DatabaseService {
   Future<Map<String, dynamic>> getExportData(int cycleId) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
       final cycleRows = await db.query(
         'recertification_cycles',
-        where: 'id = ?',
-        whereArgs: [cycleId],
+        where: 'id = ? AND user_id = ?',
+        whereArgs: [cycleId, userId],
         limit: 1,
       );
       if (cycleRows.isEmpty) {
@@ -341,6 +425,7 @@ class DatabaseService {
   }) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
       final normalizedDescription = activityDescription.trim().toLowerCase();
       final normalizedProvider = (providerName ?? '').trim().toLowerCase();
       final rows = await db.query(
@@ -348,6 +433,7 @@ class DatabaseService {
         columns: ['id'],
         where: '''
           cycle_id = ?
+          AND user_id = ?
           AND date_logged = ?
           AND category_id = ?
           AND LOWER(TRIM(activity_description)) = ?
@@ -357,6 +443,7 @@ class DatabaseService {
         ''',
         whereArgs: [
           cycleId,
+          userId,
           dateLogged,
           categoryId,
           normalizedDescription,
@@ -374,11 +461,12 @@ class DatabaseService {
   Future<String?> getSetting(String key) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
       final rows = await db.query(
         'app_settings',
         columns: ['value'],
-        where: 'key = ?',
-        whereArgs: [key],
+        where: 'user_id = ? AND key = ?',
+        whereArgs: [userId, key],
         limit: 1,
       );
       if (rows.isEmpty) return null;
@@ -391,18 +479,22 @@ class DatabaseService {
   Future<void> setSetting(String key, String? value) async {
     try {
       final db = await database;
+      final userId = _getCurrentUserId();
       if (value == null) {
-        await db.delete('app_settings', where: 'key = ?', whereArgs: [key]);
+        await db.delete(
+          'app_settings',
+          where: 'user_id = ? AND key = ?',
+          whereArgs: [userId, key],
+        );
         return;
       }
       await db.insert(
         'app_settings',
-        {'key': key, 'value': value},
+        {'user_id': userId, 'key': key, 'value': value},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     } catch (e) {
       throw Exception('Failed to write setting "$key": $e');
     }
   }
-
 }

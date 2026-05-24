@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../database/database_service.dart';
@@ -5,6 +6,7 @@ import '../../models/cpd_activity.dart';
 import '../../models/recertification_cycle.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
+import '../../utils/format_points.dart';
 import 'export_service.dart';
 
 enum _ExportType { pdf, excel }
@@ -174,6 +176,7 @@ class _ExportScreenState extends State<ExportScreen> {
       final activities = (exportData['activities'] as List<dynamic>)
           .map((row) => CpdActivity(
                 id: row['id'] as int?,
+                userId: FirebaseAuth.instance.currentUser!.uid,
                 cycleId: activeCycle.id!,
                 dateLogged: row['dateLogged'] as String,
                 categoryId: row['categoryId'] as int,
@@ -351,7 +354,7 @@ class _SummaryCard extends StatelessWidget {
               Icon(Icons.show_chart, size: 18, color: ext.textHint),
               const SizedBox(width: 8),
               Text(
-                '${view.totalPoints.toStringAsFixed(1)} / 60 pts total',
+                '${formatPoints(view.totalPoints)} / 60 pts total',
                 style: TextStyle(
                   color: ext.textSecondary,
                   fontSize: 13,

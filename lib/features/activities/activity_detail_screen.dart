@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/cpd_activity.dart';
+import '../../utils/format_points.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/app_theme_extension.dart';
 import '../../widgets/category_info_sheet.dart';
@@ -77,7 +78,7 @@ class ActivityDetailScreen extends StatelessWidget {
                     ),
                     const Spacer(),
                     Text(
-                      '${activity.pointsClaimed.toStringAsFixed(1)} pts',
+                      '${formatPoints(activity.pointsClaimed)} pts',
                       style: TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w800,
