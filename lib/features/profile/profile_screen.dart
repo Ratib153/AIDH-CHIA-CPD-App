@@ -56,7 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     double totalPoints = 0;
     int activitiesCount = 0;
-    Map<int, double> pointsByCategory = const {};
+    Map<int, Map<String, double>> pointsByCategory = emptyPointsByCategory();
     if (cycle?.id != null) {
       totalPoints =
           await _databaseService.getTotalPointsByCycle(cycle!.id!);
@@ -507,7 +507,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       totalPoints: data.totalPoints,
                       activitiesCount: data.activitiesCount,
                       categoriesUsed: data.pointsByCategory.values
-                          .where((v) => v > 0)
+                          .where((v) => (v['claimed'] ?? 0) > 0)
                           .length,
                     ),
                     const SizedBox(height: 22),
@@ -1451,7 +1451,7 @@ class _ProfileData {
   final RecertificationCycle? cycle;
   final double totalPoints;
   final int activitiesCount;
-  final Map<int, double> pointsByCategory;
+  final Map<int, Map<String, double>> pointsByCategory;
 }
 
 String _formatDate(String iso) {

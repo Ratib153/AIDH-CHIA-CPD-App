@@ -68,6 +68,31 @@ const Map<int, double> kHourlyRateCategories = {
   9: 1.0,
 };
 
+/// Returns the CPD cap for [categoryId], or null if uncapped.
+double? cpdCategoryCap(int categoryId) {
+  for (final category in kCpdCategories) {
+    if (category['id'] == categoryId) {
+      final cap = category['cap'];
+      return cap == null ? null : (cap as num).toDouble();
+    }
+  }
+  return null;
+}
+
+/// Applies a category cap to claimed points for total calculations.
+double effectiveCategoryPoints(double claimed, int categoryId) {
+  final cap = cpdCategoryCap(categoryId);
+  if (cap != null && claimed > cap) return cap;
+  return claimed;
+}
+
+/// Empty claimed/effective breakdown for all ten categories.
+Map<int, Map<String, double>> emptyPointsByCategory() {
+  return {
+    for (var i = 1; i <= 10; i++) i: {'claimed': 0.0, 'effective': 0.0},
+  };
+}
+
 const List<Map<String, String>> kCompetencyDomains = [
   {'code': 'A', 'name': 'Health Sciences'},
   {'code': 'B', 'name': 'Information Science'},

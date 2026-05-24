@@ -41,7 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<_DashboardData> _loadData() async {
     final cycle = await _databaseService.getActiveCycle();
     if (cycle?.id == null) {
-      return const _DashboardData.empty();
+      return _DashboardData.empty();
     }
 
     final activities = await _databaseService.getActivitiesByCycle(cycle!.id!);
@@ -515,7 +515,7 @@ class _SectionHeading extends StatelessWidget {
 class _CategoryList extends StatelessWidget {
   const _CategoryList({required this.pointsByCategory});
 
-  final Map<int, double> pointsByCategory;
+  final Map<int, Map<String, double>> pointsByCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -526,7 +526,7 @@ class _CategoryList extends StatelessWidget {
             categoryId: category['id'] as int,
             name: category['name'] as String,
             cap: category['cap'] as double?,
-            total: pointsByCategory[category['id'] as int] ?? 0,
+            total: pointsByCategory[category['id'] as int]?['claimed'] ?? 0,
           ),
           const SizedBox(height: 10),
         ],
@@ -894,20 +894,23 @@ class _DashboardData {
     required this.recentActivities,
   });
 
-  const _DashboardData.empty()
-      : cycleName = 'No Active Cycle',
-        endDate = 'N/A',
-        targetPoints = 60,
-        totalPoints = 0,
-        pointsByCategory = const {},
-        domainTotals = const {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
-        recentActivities = const [];
+  factory _DashboardData.empty() {
+    return _DashboardData(
+      cycleName: 'No Active Cycle',
+      endDate: 'N/A',
+      targetPoints: 60,
+      totalPoints: 0,
+      pointsByCategory: emptyPointsByCategory(),
+      domainTotals: const {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0},
+      recentActivities: const [],
+    );
+  }
 
   final String cycleName;
   final String endDate;
   final double targetPoints;
   final double totalPoints;
-  final Map<int, double> pointsByCategory;
+  final Map<int, Map<String, double>> pointsByCategory;
   final Map<String, double> domainTotals;
   final List<CpdActivity> recentActivities;
 }

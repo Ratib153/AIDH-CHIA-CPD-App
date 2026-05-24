@@ -327,27 +327,21 @@ class DatabaseService {
 
   Future<double> getTotalPointsByCycle(int cycleId) async {
     try {
-      final db = await database;
-      final userId = _getCurrentUserId();
-      final result = await db.rawQuery(
-        '''
-        SELECT COALESCE(SUM(points_claimed), 0) AS total
-        FROM cpd_activities
-        WHERE cycle_id = ? AND user_id = ? AND deleted_at IS NULL
-        ''',
-        [cycleId, userId],
+      final pointsByCategory = await getPointsByCategory(cycleId);
+      return pointsByCategory.values.fold<double>(
+        0,
+        (sum, entry) => sum + (entry['effective'] ?? 0),
       );
-      return (result.first['total'] as num?)?.toDouble() ?? 0.0;
     } catch (e) {
       throw Exception('Failed to fetch total points by cycle: $e');
     }
   }
 
-  Future<Map<int, double>> getPointsByCategory(int cycleId) async {
+  Future<Map<int, Map<String, double>>> getPointsByCategory(int cycleId) async {
     try {
       final db = await database;
       final userId = _getCurrentUserId();
-      final pointsByCategory = <int, double>{for (var i = 1; i <= 10; i++) i: 0.0};
+      final pointsByCategory = emptyPointsByCategory();
       final result = await db.rawQuery(
         '''
         SELECT category_id, COALESCE(SUM(points_claimed), 0) AS total
@@ -359,7 +353,11 @@ class DatabaseService {
       );
       for (final row in result) {
         final categoryId = row['category_id'] as int;
-        pointsByCategory[categoryId] = (row['total'] as num).toDouble();
+        final claimed = (row['total'] as num).toDouble();
+        pointsByCategory[categoryId] = {
+          'claimed': claimed,
+          'effective': effectiveCategoryPoints(claimed, categoryId),
+        };
       }
       return pointsByCategory;
     } catch (e) {

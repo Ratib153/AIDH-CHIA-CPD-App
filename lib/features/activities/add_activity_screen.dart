@@ -55,7 +55,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
   String? _successText;
 
   // Per-cycle category caps live-snapshot, refreshed when relevant.
-  Map<int, double> _pointsByCategory = const {};
+  Map<int, Map<String, double>> _pointsByCategory = emptyPointsByCategory();
 
   @override
   void initState() {
@@ -145,7 +145,9 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     final active = await _databaseService.getActiveCycle();
     if (active?.id == null || _selectedCategoryId == null) return;
     final pointsMap = await _databaseService.getPointsByCategory(active!.id!);
-    final currentCategoryPoints = pointsMap[_selectedCategoryId!] ?? 0;
+    final categoryEntry = pointsMap[_selectedCategoryId!] ?? const {'claimed': 0.0, 'effective': 0.0};
+    final currentCategoryPoints = categoryEntry['claimed'] ?? 0;
+    final currentCategoryEffective = categoryEntry['effective'] ?? 0;
     final category =
         kCpdCategories.firstWhere((c) => c['id'] == _selectedCategoryId);
     final cap = category['cap'] as double?;
@@ -153,13 +155,23 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     if (cap != null && currentCategoryPoints + _pointsClaimed > cap) {
       final countable =
           (cap - currentCategoryPoints).clamp(0.0, _pointsClaimed).toDouble();
+      final effectiveAfter = effectiveCategoryPoints(
+        currentCategoryPoints + _pointsClaimed,
+        _selectedCategoryId!,
+      );
       warning =
           'Adding this activity will exceed the cap for ${category['name']} (cap: ${cap.toStringAsFixed(0)} pts). '
-          'Only ${formatPoints(countable)} pts of your ${formatPoints(_pointsClaimed)} pts claimed will count towards your 60-point total.';
+          'Only ${formatPoints(countable)} pts of your ${formatPoints(_pointsClaimed)} pts claimed will count towards your 60-point total. '
+          'Your recertification total will count only ${formatPoints(effectiveAfter)} from this category.';
     }
     final cycleTotal = await _databaseService.getTotalPointsByCycle(active.id!);
+    final effectiveDelta = effectiveCategoryPoints(
+          currentCategoryPoints + _pointsClaimed,
+          _selectedCategoryId!,
+        ) -
+        currentCategoryEffective;
     String? success;
-    if (cycleTotal + _pointsClaimed >= 60) {
+    if (cycleTotal + effectiveDelta >= 60) {
       success =
           '🎉 Adding this activity will complete your 60-point recertification requirement!';
     }
@@ -306,7 +318,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
         providerName: _fields['provider']!.text.trim().isEmpty
             ? null
             : _fields['provider']!.text.trim(),
-        durationHours: double.tryParse(_fields['durationHours']!.text),
+        durationHours: _durationHoursForSave(),
         pointsClaimed: _pointsClaimed,
         competencyDomain: _selectedDomain,
         evidenceNote: evidence.isEmpty ? null : evidence,
@@ -352,6 +364,16 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  double? _durationHoursForSave() {
+    if (_selectedCategoryId == 4 && _cat4Role == 'speaker') {
+      final minutes = int.tryParse(_fields['minutes']!.text);
+      if (minutes == null || minutes <= 0) return null;
+      return minutes / 60.0;
+    }
+    final hours = double.tryParse(_fields['durationHours']!.text);
+    return hours;
   }
 
   bool _hasRequiredCategoryFields(int categoryId) {
@@ -485,7 +507,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                       name: category['name'] as String,
                       cap: category['cap'] as double?,
                       rateDescription: category['rateDescription'] as String,
-                      currentPoints: _pointsByCategory[id] ?? 0,
+                      currentPoints: _pointsByCategory[id]?['claimed'] ?? 0,
                       selected: selected,
                       onTap: () {
                         setState(() {
@@ -752,6 +774,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
             DropdownMenuItem(
                 value: 'speaker', child: Text('Speaker / Guest Lecturer')),
             DropdownMenuItem(value: 'panel', child: Text('Panel / Poster')),
+            DropdownMenuItem(value: 'chair', child: Text('Chair')),
           ],
           onChanged: (value) {
             setState(() => _cat4Role = value!);
@@ -767,6 +790,18 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
                 labelText: 'Minutes (2 pts / 15 min)'),
             validator: (value) =>
                 (int.tryParse(value ?? '') ?? 0) <= 0 ? 'Enter minutes.' : null,
+            onChanged: (_) => _recomputePoints(),
+          )
+        else
+          TextFormField(
+            controller: _fields['durationHours'],
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Duration (hours, 2 pts/hr)',
+            ),
+            validator: (value) => (double.tryParse(value ?? '') ?? 0) <= 0
+                ? 'Enter a valid duration.'
+                : null,
             onChanged: (_) => _recomputePoints(),
           ),
       ]);
@@ -807,6 +842,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
             controller: _fields['count'],
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(labelText: 'Number of items'),
+            validator: (value) =>
+                (int.tryParse(value ?? '') ?? 0) <= 0 ? 'Enter item count.' : null,
             onChanged: (_) => _recomputePoints(),
           ),
         );
@@ -818,6 +855,9 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
             controller: _fields['contentHours'],
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: 'Hours of content'),
+            validator: (value) => (double.tryParse(value ?? '') ?? 0) <= 0
+                ? 'Enter content hours.'
+                : null,
             onChanged: (_) => _recomputePoints(),
           ),
         );
@@ -870,6 +910,7 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
             _recomputePoints();
             setState(() {});
           },
+          validator: (value) => value == null ? 'Select review type.' : null,
         ),
         const SizedBox(height: 12),
       ]);
@@ -895,6 +936,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
           controller: _fields['sessions'],
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Number of sessions'),
+          validator: (value) =>
+              (int.tryParse(value ?? '') ?? 0) <= 0 ? 'Enter session count.' : null,
           onChanged: (_) => _recomputePoints(),
         ),
         const SizedBox(height: 12),
@@ -902,6 +945,8 @@ class _AddActivityScreenState extends State<AddActivityScreen> {
           controller: _fields['minutesPerSession'],
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(labelText: 'Minutes per session'),
+          validator: (value) =>
+              (int.tryParse(value ?? '') ?? 0) <= 0 ? 'Enter minutes per session.' : null,
           onChanged: (_) => _recomputePoints(),
         ),
         const SizedBox(height: 12),
