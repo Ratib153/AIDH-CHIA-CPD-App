@@ -26,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+
+	<key>NSCameraUsageDescription</key>
+	<string>This app uses the camera to scan QR codes for CPD activities.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app accesses photos so users can upload images for CPD activities.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app saves generated files and images to your photo library for CPD activities.</string>
+
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -47,6 +55,7 @@
 			</array>
 		</dict>
 	</dict>
+
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
